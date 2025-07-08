@@ -276,7 +276,7 @@ elif tab == "History":
                     border-radius: 1.1em;
                     box-shadow: 0 2px 7px #e4eefc70;
                     margin-bottom: 0.75em;
-                    padding: 0.40em 0.4em 0.38em 0.8em;
+                    padding: 0.4em 0.4em 0.38em 0.8em;
                     overflow-x: auto;
                 }
                 .purchase-card-row {
@@ -322,78 +322,44 @@ elif tab == "History":
                 </div>
             """, unsafe_allow_html=True)
 
-# --- PURCHASE ROWS, each inside its own card ---
-for i, row in df.iterrows():
-    idx = purchases.index(filtered[i])
-    editing = (st.session_state.edit_row == idx)
-    st.markdown("<div class='purchase-card-box'>", unsafe_allow_html=True)
-    cols = st.columns([1.8,1,1,1,0.9,0.7])
-    if not editing:
-        cols[0].markdown(f"<div class='purchase-col-date'>{row['date']}</div>", unsafe_allow_html=True)
-        cols[1].markdown(f"<div class='purchase-col-card'>{row['card']}</div>", unsafe_allow_html=True)
-        cols[2].markdown(f"<div class='purchase-col-cat'>{row['category']}</div>", unsafe_allow_html=True)
-        cols[3].markdown(f"<div class='purchase-col-amt'>${row['amount']:.2f}</div>", unsafe_allow_html=True)
-        cols[4].markdown(f"<div class='purchase-col-paid'>{row['paid_str']}</div>", unsafe_allow_html=True)
-        if cols[5].button("✏️", key=f"edit_{idx}"):
-            st.session_state.edit_row = idx
-            st.rerun()
-    else:
-        cols[0].write(row["date"])
-        cols[1].write(row["card"])
-        cols[2].write(row["category"])
-        new_amt = cols[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}", label_visibility="collapsed")
-        new_paid = cols[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}", label_visibility="collapsed")
-        if cols[5].button("Save", key=f"save_{idx}"):
-            purchases[idx]["amount"] = new_amt
-            purchases[idx]["paid"] = new_paid
-            save_purchases(purchases)
-            st.success("Purchase updated!")
-            st.session_state.edit_row = None
-            st.rerun()
-        if cols[5].button("Delete", key=f"delete_{idx}"):
-            purchases.pop(idx)
-            save_purchases(purchases)
-            st.success("Purchase deleted!")
-            st.session_state.edit_row = None
-            st.rerun()
-        if cols[5].button("Cancel", key=f"cancel_{idx}"):
-            st.session_state.edit_row = None
-            st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
-
-                    # Place the edit button with Streamlit so it always works:
-                    cols = st.columns([1.8,1,1,1,0.9,0.7])
-                    with cols[5]:
-                        if st.button("✏️", key=f"edit_{idx}"):
-                            st.session_state.edit_row = idx
-                            st.rerun()
+            # --- PURCHASE ROWS, each inside its own card ---
+            for i, row in df.iterrows():
+                idx = purchases.index(filtered[i])
+                editing = (st.session_state.edit_row == idx)
+                st.markdown("<div class='purchase-card-box'>", unsafe_allow_html=True)
+                cols = st.columns([1.8,1,1,1,0.9,0.7])
+                if not editing:
+                    cols[0].markdown(f"<div class='purchase-col-date'>{row['date']}</div>", unsafe_allow_html=True)
+                    cols[1].markdown(f"<div class='purchase-col-card'>{row['card']}</div>", unsafe_allow_html=True)
+                    cols[2].markdown(f"<div class='purchase-col-cat'>{row['category']}</div>", unsafe_allow_html=True)
+                    cols[3].markdown(f"<div class='purchase-col-amt'>${row['amount']:.2f}</div>", unsafe_allow_html=True)
+                    cols[4].markdown(f"<div class='purchase-col-paid'>{row['paid_str']}</div>", unsafe_allow_html=True)
+                    if cols[5].button("✏️", key=f"edit_{idx}"):
+                        st.session_state.edit_row = idx
+                        st.rerun()
                 else:
-                    st.markdown(
-                        "<div class='purchase-card-box'>", unsafe_allow_html=True)
-                    ec = st.columns([1.8,1,1,1,0.9,0.7])
-                    ec[0].write(row["date"])
-                    ec[1].write(row["card"])
-                    ec[2].write(row["category"])
-                    new_amt = ec[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}")
-                    new_paid = ec[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}")
-                    with ec[5]:
-                        if st.button("Save", key=f"save_{idx}"):
-                            purchases[idx]["amount"] = new_amt
-                            purchases[idx]["paid"] = new_paid
-                            save_purchases(purchases)
-                            st.success("Purchase updated!")
-                            st.session_state.edit_row = None
-                            st.rerun()
-                        if st.button("Delete", key=f"delete_{idx}"):
-                            purchases.pop(idx)
-                            save_purchases(purchases)
-                            st.success("Purchase deleted!")
-                            st.session_state.edit_row = None
-                            st.rerun()
-                        if st.button("Cancel", key=f"cancel_{idx}"):
-                            st.session_state.edit_row = None
-                            st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    cols[0].write(row["date"])
+                    cols[1].write(row["card"])
+                    cols[2].write(row["category"])
+                    new_amt = cols[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}", label_visibility="collapsed")
+                    new_paid = cols[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}", label_visibility="collapsed")
+                    if cols[5].button("Save", key=f"save_{idx}"):
+                        purchases[idx]["amount"] = new_amt
+                        purchases[idx]["paid"] = new_paid
+                        save_purchases(purchases)
+                        st.success("Purchase updated!")
+                        st.session_state.edit_row = None
+                        st.rerun()
+                    if cols[5].button("Delete", key=f"delete_{idx}"):
+                        purchases.pop(idx)
+                        save_purchases(purchases)
+                        st.success("Purchase deleted!")
+                        st.session_state.edit_row = None
+                        st.rerun()
+                    if cols[5].button("Cancel", key=f"cancel_{idx}"):
+                        st.session_state.edit_row = None
+                        st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
             # ---- MARK ALL AS PAID BUTTON ----
             if any(not p.get("paid") for p in filtered):
@@ -403,6 +369,7 @@ for i, row in df.iterrows():
                     save_purchases(purchases)
                     st.success("All visible purchases marked as paid.")
                     st.rerun()
+
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
