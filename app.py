@@ -76,7 +76,9 @@ if "edit_purchase_index" not in st.session_state:
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = "Add Purchase"
 if "purchase_amount" not in st.session_state:
-    st.session_state.purchase_amount = 0.0
+    st.session_state.purchase_amount = 0.01   # Must match min_value!
+if "purchase_paid" not in st.session_state:
+    st.session_state.purchase_paid = False
 
 def tabs_nav():
     tabs = {
@@ -115,19 +117,21 @@ if tab == "Add Purchase":
         else:
             st.warning("This card has no categories. Please add some in Cards tab.")
             purchase_category = ""
-        purchase_amount = st.number_input("Amount", min_value=0.01, step=0.01, format="%.2f", key="purchase_amount")
-        purchase_paid = st.checkbox("Paid?", value=False, key="purchase_paid")
+        purchase_amount = st.number_input(
+            "Amount", min_value=0.01, step=0.01, format="%.2f", key="purchase_amount"
+        )
+        purchase_paid = st.checkbox("Paid?", value=st.session_state.purchase_paid, key="purchase_paid")
         if st.button("Add Purchase", use_container_width=True):
             new_purchase = {
                 "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "card": purchase_card,
                 "category": purchase_category,
                 "amount": float(st.session_state.purchase_amount),
-                "paid": purchase_paid,
+                "paid": st.session_state.purchase_paid,
             }
             purchases.append(new_purchase)
             save_purchases(purchases)
-            st.session_state.purchase_amount = 0.0  # Clear field!
+            st.session_state.purchase_amount = 0.01   # Reset to min_value, NOT 0!
             st.session_state.purchase_paid = False
             st.success("Purchase added!")
             st.rerun()
