@@ -370,7 +370,6 @@ elif tab == "History":
                     st.success("All visible purchases marked as paid.")
                     st.rerun()
 
-
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
     st.header("💳 Cards")
