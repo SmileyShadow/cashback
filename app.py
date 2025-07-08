@@ -249,7 +249,7 @@ elif tab == "History":
             df['net'] = df['amount'].astype(float) - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
 
-            # --- STYLE ---
+            # --- STYLE for white row boxes ---
             st.markdown("""
             <style>
             .purchase-box {
@@ -257,27 +257,25 @@ elif tab == "History":
                 color: #232629 !important;
                 border-radius: 1.1em;
                 box-shadow: 0 2px 12px #c5c6c980;
-                margin-bottom: 0.7em;
-                padding: 0.1em 0.4em 0.1em 0.5em;
+                padding: 0.48em 0.5em 0.48em 0.6em;
+                font-size: 1.07em;
                 width: 100%;
+                margin-bottom: 0.1em;
             }
-            .purchase-header .block-container {
-                padding-top: 0;
-            }
-            .stButton button {
+            .stButton>button {
                 background: #232629;
                 color: #fff;
-                border-radius: 0.8em;
-                font-size: 1.02em;
+                border-radius: 0.7em;
+                font-size: 1.09em;
                 padding: 0.26em 1.2em;
             }
-            .stButton button:hover {
+            .stButton>button:hover {
                 background: #2851a3;
             }
             </style>
             """, unsafe_allow_html=True)
 
-            # --- HEADLINE ---
+            # --- HEADER ROW ---
             header_cols = st.columns([2.1, 1.6, 1.5, 1.5, 1, 1])
             header_cols[0].markdown("**Date**")
             header_cols[1].markdown("**Card**")
