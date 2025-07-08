@@ -52,7 +52,6 @@ def save_cards(cards):
 def load_purchases():
     records = purchases_ws.get_all_records()
     for p in records:
-        # Fix missing paid and amount fields
         if "paid" not in p:
             p["paid"] = False
         if isinstance(p["paid"], str):
@@ -61,19 +60,19 @@ def load_purchases():
             else:
                 p["paid"] = False
         if "amount" not in p or p["amount"] == "" or p["amount"] is None:
-            p["amount"] = 0.01
+            p["amount"] = 0.0
         try:
             p["amount"] = float(p["amount"])
         except:
-            p["amount"] = 0.01
+            p["amount"] = 0.0
     return records
 
 def save_purchases(purchases):
-    purchases_ws.resize(rows=1)
+    purchases_ws.clear()
     if purchases:
-        purchases_ws.append_row(list(purchases[0].keys()))
+        purchases_ws.append_row(["date", "card", "category", "amount", "paid"])
         for p in purchases:
-            purchases_ws.append_row(list(p.values()))
+            purchases_ws.append_row([p["date"], p["card"], p["category"], p["amount"], p["paid"]])
 
 if "new_card_categories" not in st.session_state:
     st.session_state.new_card_categories = {}
@@ -82,11 +81,13 @@ if "edit_purchase_index" not in st.session_state:
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = "Add Purchase"
 if "purchase_amount" not in st.session_state:
-    st.session_state.purchase_amount = 0.01
+    st.session_state.purchase_amount = 0.0
 if "purchase_paid" not in st.session_state:
     st.session_state.purchase_paid = False
-if "last_add" not in st.session_state:
-    st.session_state.last_add = 0
+if "add_success" not in st.session_state:
+    st.session_state.add_success = False
+if "edit_row" not in st.session_state:
+    st.session_state.edit_row = None
 
 def tabs_nav():
     tabs = {
@@ -126,35 +127,46 @@ if tab == "Add Purchase":
             st.warning("This card has no categories. Please add some in Cards tab.")
             purchase_category = ""
         purchase_amount = st.number_input(
-            "Amount", min_value=0.01, step=0.01, format="%.2f",
+            "Amount", min_value=0.0, step=0.01, format="%.2f",
             key="purchase_amount"
         )
         purchase_paid = st.checkbox("Paid?", value=st.session_state.purchase_paid, key="purchase_paid")
         add_pressed = st.button("Add Purchase", use_container_width=True)
         if add_pressed:
-            new_purchase = {
-                "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "card": purchase_card,
-                "category": purchase_category,
-                "amount": float(st.session_state.purchase_amount),
-                "paid": st.session_state.purchase_paid,
-            }
-            purchases.append(new_purchase)
-            save_purchases(purchases)
-            # Instead of assigning after rerun, use session flag
-            st.session_state.last_add += 1
-            st.experimental_set_query_params(reset=st.session_state.last_add)
-            st.rerun()
-
-        # After rerun, reset only if coming from add
-        if st.session_state.last_add > 0:
-            st.session_state.purchase_amount = 0.01
-            st.session_state.purchase_paid = False
-            st.session_state.last_add = 0
+            if st.session_state.purchase_amount == 0.0:
+                st.warning("Amount must be greater than zero.")
+            else:
+                new_purchase = {
+                    "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "card": purchase_card,
+                    "category": purchase_category,
+                    "amount": float(st.session_state.purchase_amount),
+                    "paid": st.session_state.purchase_paid,
+                }
+                purchases.append(new_purchase)
+                save_purchases(purchases)
+                st.session_state.add_success = True
+                st.session_state.purchase_amount = 0.0
+                st.session_state.purchase_paid = False
+                st.rerun()
+        if st.session_state.add_success:
+            st.toast("Purchase added successfully!", icon="✅")
+            st.session_state.add_success = False
 
 # ---- 2. History Tab ----
 elif tab == "History":
     st.header("📜 Purchase History")
+    # Show a nice headline (column headers)
+    st.markdown("""
+        <div style="font-weight:600; background:#f4f8ff; border-radius:0.8em; padding:0.7em 1em; margin-bottom:8px; display:flex; gap:1.2em; color:#2851a3;">
+            <div style='width:110px'>Date</div>
+            <div style='width:70px'>Card</div>
+            <div style='width:60px'>Category</div>
+            <div style='width:60px'>Amount</div>
+            <div style='width:40px'>Paid</div>
+            <div style='width:50px'>Edit</div>
+        </div>
+    """, unsafe_allow_html=True)
     if not purchases:
         st.info("No purchases yet.")
     else:
@@ -181,41 +193,44 @@ elif tab == "History":
             df['net'] = df['amount'].astype(float) - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
 
-            st.markdown("""
-                <div style='display:flex; gap:1em; margin-bottom:1em; justify-content:center; flex-wrap:wrap;'>
-                  <div style='background:#2498F7;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #2498f755;'>
-                    <span style='font-size:1.3em;'>💳 Total</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${:.2f}</span>
-                  </div>
-                  <div style='background:#3DBB5B;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #3DBB5B55;'>
-                    <span style='font-size:1.3em;'>💰 Cashback</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${:.2f}</span>
-                  </div>
-                  <div style='background:#FFB200;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #FFB20055;'>
-                    <span style='font-size:1.3em;'>🧾 Net</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${:.2f}</span>
-                  </div>
-                </div>
-            """.format(df['amount'].sum(), df['cashback'].sum(), df['net'].sum()), unsafe_allow_html=True)
-
-            # Stylish card per row
             for i, row in df.iterrows():
-                st.markdown(f"""
-                <div style='margin-bottom:0.7em;padding:1em 1em 1em 1em;border-radius:1em;
-                            background: #fafcff; box-shadow:0 2px 7px #e4eefc70; display:flex; align-items:center; gap:1.1em;'>
-                    <div style='min-width:70px;text-align:center;'>
-                        <div style='font-weight:bold;font-size:1.1em;'>{row["card"]}</div>
-                        <div style='font-size:0.95em;color:#555;'>{row["category"]}</div>
-                    </div>
-                    <div style='flex:1;'>
-                        <div style='font-size:1.12em;'>${row["amount"]:.2f} <span style="color:#888;">({row["cashback %"]:.1f}% / <span style="color:#3DBB5B;">${row["cashback"]:.2f}</span>)</span></div>
-                        <div style='font-size:0.96em;color:#666;'>Net: <b>${row["net"]:.2f}</b></div>
-                    </div>
-                    <div style='font-size:1.6em;'>{row["paid_str"]}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                idx = purchases.index(filtered[i])
+                editing = (st.session_state.edit_row == idx)
+                with st.container():
+                    if not editing:
+                        c = st.columns([1.4,1,1,1,0.8,0.8])
+                        c[0].write(row["date"])
+                        c[1].write(row["card"])
+                        c[2].write(row["category"])
+                        c[3].write(f"${row['amount']:.2f}")
+                        c[4].write(row["paid_str"])
+                        if c[5].button("✏️", key=f"edit_{idx}"):
+                            st.session_state.edit_row = idx
+                            st.rerun()
+                    else:
+                        c = st.columns([1.4,1,1,1,0.8,0.8,1])
+                        c[0].write(row["date"])
+                        c[1].write(row["card"])
+                        c[2].write(row["category"])
+                        new_amt = c[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}")
+                        new_paid = c[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}")
+                        if c[5].button("Save", key=f"save_{idx}"):
+                            purchases[idx]["amount"] = new_amt
+                            purchases[idx]["paid"] = new_paid
+                            save_purchases(purchases)
+                            st.success("Purchase updated!")
+                            st.session_state.edit_row = None
+                            st.rerun()
+                        if c[6].button("Delete", key=f"delete_{idx}"):
+                            purchases.pop(idx)
+                            save_purchases(purchases)
+                            st.success("Purchase deleted!")
+                            st.session_state.edit_row = None
+                            st.rerun()
+                        if c[6].button("Cancel", key=f"cancel_{idx}"):
+                            st.session_state.edit_row = None
+                            st.rerun()
 
-            # Mark all as paid
             if any(not p.get("paid") for p in filtered):
                 if st.button("Mark all visible as paid", type="primary"):
                     for p in filtered:
@@ -223,13 +238,6 @@ elif tab == "History":
                     save_purchases(purchases)
                     st.success("All visible purchases marked as paid.")
                     st.rerun()
-
-            # Clear all purchases
-            if st.button("⚠️ Clear ALL Purchases", type="secondary"):
-                purchases.clear()
-                save_purchases(purchases)
-                st.success("All purchases cleared from Google Sheet!")
-                st.rerun()
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
@@ -246,7 +254,6 @@ elif tab == "Cards":
                 if cat_name and cat_percent > 0:
                     st.session_state.new_card_categories[cat_name] = cat_percent / 100.0
                     st.success(f"Added category '{cat_name}' ({cat_percent}%)")
-        # Show current categories
         if st.session_state.new_card_categories:
             st.markdown("**Categories Added:**")
             for cat, pct in list(st.session_state.new_card_categories.items()):
