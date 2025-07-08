@@ -322,7 +322,7 @@ elif tab == "History":
                 </div>
             """, unsafe_allow_html=True)
 
-            # --- PURCHASE ROWS, each inside its own card ---
+# --- PURCHASE ROWS, each inside its own card ---
 for i, row in df.iterrows():
     idx = purchases.index(filtered[i])
     editing = (st.session_state.edit_row == idx)
@@ -360,7 +360,6 @@ for i, row in df.iterrows():
             st.session_state.edit_row = None
             st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
-
 
                     # Place the edit button with Streamlit so it always works:
                     cols = st.columns([1.8,1,1,1,0.9,0.7])
