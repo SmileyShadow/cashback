@@ -7,7 +7,6 @@ from datetime import datetime
 
 st.set_page_config(page_title="Cashback Cards App", page_icon="💳", layout="centered")
 
-# ----- GOOGLE SHEETS -----
 SCOPE = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/spreadsheets",
@@ -64,7 +63,7 @@ def load_purchases():
     return records
 
 def save_purchases(purchases):
-    purchases_ws.clear()
+    purchases_ws.resize(rows=1)  # Keep only header!
     if purchases:
         purchases_ws.append_row(list(purchases[0].keys()))
         for p in purchases:
@@ -76,8 +75,9 @@ if "edit_purchase_index" not in st.session_state:
     st.session_state.edit_purchase_index = None
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = "Add Purchase"
+if "purchase_amount" not in st.session_state:
+    st.session_state.purchase_amount = 0.0
 
-# ---- Top Navigation ----
 def tabs_nav():
     tabs = {
         "Add Purchase": "🟢 Add Purchase",
@@ -87,7 +87,6 @@ def tabs_nav():
     st.markdown("""
         <style>
         .stButton button {font-size:1.25rem;padding:0.75em 0;border-radius:2em;}
-        .stTabs [data-baseweb="tab-list"] {justify-content: center;}
         </style>
         """, unsafe_allow_html=True)
     cols = st.columns(len(tabs))
@@ -116,18 +115,20 @@ if tab == "Add Purchase":
         else:
             st.warning("This card has no categories. Please add some in Cards tab.")
             purchase_category = ""
-        purchase_amount = st.number_input("Amount", min_value=0.01, step=0.01, format="%.2f")
-        purchase_paid = st.checkbox("Paid?", value=False)
+        purchase_amount = st.number_input("Amount", min_value=0.01, step=0.01, format="%.2f", key="purchase_amount")
+        purchase_paid = st.checkbox("Paid?", value=False, key="purchase_paid")
         if st.button("Add Purchase", use_container_width=True):
             new_purchase = {
                 "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "card": purchase_card,
                 "category": purchase_category,
-                "amount": float(purchase_amount),
+                "amount": float(st.session_state.purchase_amount),
                 "paid": purchase_paid,
             }
             purchases.append(new_purchase)
             save_purchases(purchases)
+            st.session_state.purchase_amount = 0.0  # Clear field!
+            st.session_state.purchase_paid = False
             st.success("Purchase added!")
             st.rerun()
 
@@ -141,10 +142,10 @@ elif tab == "History":
         all_cards = ["All"] + list(cards.keys())
         filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
         paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], horizontal=True)
-        if filter_card == "All":
-            filtered = purchases.copy()
-        else:
-            filtered = [p for p in purchases if p["card"] == filter_card]
+        # Always work with only well-formed records:
+        filtered = [p for p in purchases if "card" in p and "category" in p and "amount" in p and "paid" in p]
+        if filter_card != "All":
+            filtered = [p for p in filtered if p["card"] == filter_card]
         if paid_filter == "Paid only":
             filtered = [p for p in filtered if p.get("paid") is True]
         elif paid_filter == "Unpaid only":
@@ -153,13 +154,16 @@ elif tab == "History":
         df = pd.DataFrame(filtered)
         if not df.empty:
             def get_cashback(row):
-                return cards.get(row['card'], {}).get(row['category'], 0)
+                try:
+                    return cards.get(row['card'], {}).get(row['category'], 0)
+                except KeyError:
+                    return 0
             df['cashback %'] = df.apply(get_cashback, axis=1) * 100
             df['cashback'] = df['amount'] * df.apply(get_cashback, axis=1)
             df['net'] = df['amount'] - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
 
-            # --- MODERN Stylish Totals Banner ---
+            # --- Modern Totals Banner ---
             st.markdown("""
                 <div style='display:flex; gap:1em; margin-bottom:1em; justify-content:center; flex-wrap:wrap;'>
                   <div style='background:#2498F7;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #2498f755;'>
@@ -177,21 +181,30 @@ elif tab == "History":
                 </div>
             """.format(df['amount'].sum(), df['cashback'].sum(), df['net'].sum()), unsafe_allow_html=True)
 
-            # Table with Edit buttons
-            st.markdown("### Purchases")
+            # Modern one-row cards for each purchase
             for i, row in df.iterrows():
-                c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns([2,2,2,2,2,2,2,2,1])
-                c1.write(row["date"])
-                c2.write(row["card"])
-                c3.write(row["category"])
-                c4.write(f"${row['amount']:.2f}")
-                c5.write(row["paid_str"])
-                c6.write(f"{row['cashback %']:.1f}%")
-                c7.write(f"${row['cashback']:.2f}")
-                c8.write(f"${row['net']:.2f}")
-                edit_btn = c9.button("✏️", key=f"editbtn_{i}")
-                if edit_btn:
-                    st.session_state.edit_purchase_index = purchases.index(filtered[i])
+                st.markdown(f"""
+                <div style='margin-bottom:0.7em;padding:1em 1em 1em 1em;border-radius:1em;
+                            background: #fafcff; box-shadow:0 2px 7px #e4eefc70; display:flex; align-items:center; gap:1.1em;'>
+                    <div style='min-width:70px;text-align:center;'>
+                        <div style='font-weight:bold;font-size:1.1em;'>{row["card"]}</div>
+                        <div style='font-size:0.95em;color:#555;'>{row["category"]}</div>
+                    </div>
+                    <div style='flex:1;'>
+                        <div style='font-size:1.12em;'>${row["amount"]:.2f} <span style="color:#888;">({row["cashback %"]:.1f}% / <span style="color:#3DBB5B;">${row["cashback"]:.2f}</span>)</span></div>
+                        <div style='font-size:0.96em;color:#666;'>Net: <b>${row["net"]:.2f}</b></div>
+                    </div>
+                    <div style='font-size:1.6em;'>{row["paid_str"]}</div>
+                    <div>
+                        <form action="" method="post">
+                            <button name="edit_btn" value="{i}" style="background:#eaf3fb;border:none;border-radius:0.7em;padding:0.7em 1em;font-size:1em;cursor:pointer;">✏️ Edit</button>
+                        </form>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.session_state.edit_purchase_index is None:
+                    if st.form_submit_button("edit_btn", key=f"editbtn_{i}"):
+                        st.session_state.edit_purchase_index = purchases.index(filtered[i])
 
             # Edit modal for selected purchase
             if st.session_state.edit_purchase_index is not None:
@@ -224,6 +237,13 @@ elif tab == "History":
                     save_purchases(purchases)
                     st.success("All visible purchases marked as paid.")
                     st.rerun()
+
+            # Clear all purchases
+            if st.button("⚠️ Clear ALL Purchases", type="secondary"):
+                purchases.clear()
+                save_purchases(purchases)
+                st.success("All purchases cleared from Google Sheet!")
+                st.rerun()
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
