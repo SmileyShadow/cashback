@@ -68,13 +68,10 @@ def load_purchases():
     return records
 
 def save_purchases(purchases):
-    # Only clear once and update all at once for all rows
     values = [["date", "card", "category", "amount", "paid"]]
     for p in purchases:
         values.append([p["date"], p["card"], p["category"], p["amount"], p["paid"]])
-    # Don't clear, just batch update the range!
     purchases_ws.update(f"A1:E{len(values)}", values)
-    # If the new data is shorter than the previous data, delete leftover rows
     sheet_len = len(purchases_ws.get_all_values())
     if sheet_len > len(values):
         purchases_ws.batch_clear([f"A{len(values)+1}:E{sheet_len}"])
@@ -119,65 +116,9 @@ tab = tabs_nav()
 cards = load_cards()
 purchases = load_purchases()
 
-# ---------- HISTORY STYLE ------------
-st.markdown("""
-    <style>
-    .purchase-row, .purchase-header {
-        display: flex; align-items: center; gap: 0.5em;
-        width: 100%; min-width: 390px; overflow-x: auto;
-    }
-    .purchase-row { 
-        background: #fafcff; border-radius: 1.1em; box-shadow: 0 2px 7px #e4eefc70;
-        padding: 0.7em 0.6em; margin-bottom: 0.55em;
-    }
-    .purchase-header {
-        font-weight: 600; background: #f4f8ff; border-radius: 0.8em; 
-        padding: 0.7em 1em; margin-bottom: 6px; color: #2851a3;
-    }
-    .purchase-row .col-date,
-    .purchase-row .col-card,
-    .purchase-row .col-cat,
-    .purchase-row .col-amt,
-    .purchase-row .col-paid,
-    .purchase-row .col-edit {
-        color: #222 !important;
-        font-size: 1.08em;
-        font-weight: 500;
-    }
-    .col-date { min-width: 88px; max-width: 24%; overflow-x:hidden;}
-    .col-card { min-width: 55px; max-width: 18%; overflow-x:hidden;}
-    .col-cat { min-width: 46px; max-width: 15%; overflow-x:hidden;}
-    .col-amt { min-width: 66px; max-width: 15%; text-align:right; overflow-x:hidden;}
-    .col-paid { min-width: 33px; max-width: 12%; text-align:center; overflow-x:hidden;}
-    .col-edit { min-width: 45px; max-width: 13%; text-align:center; overflow-x:hidden;}
-    .edit-btn {
-        background: #eaf3fb;
-        color: #222;
-        border: none;
-        border-radius: 0.7em;
-        padding: 0.38em 0.9em;
-        font-size: 1em;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-    .edit-btn:hover { background: #dbefff; }
-    @media (max-width: 650px) {
-      .purchase-row, .purchase-header { font-size: 1em; min-width: 330px; }
-      .col-date { min-width: 70px;}
-      .col-card { min-width: 42px;}
-      .col-cat { min-width: 36px;}
-      .col-amt { min-width: 53px;}
-      .col-paid { min-width: 25px;}
-      .col-edit { min-width: 38px;}
-    }
-    </style>
-""", unsafe_allow_html=True)
-# -------------------------------------
-
-# ---- 1. Add Purchase (Main Tab) ----
+# ---- 1. Add Purchase Tab ----
 if tab == "Add Purchase":
     st.header("🟢 Add Purchase")
-    # -- Reset fields at the start of the rerun, if needed --
     if st.session_state.get("should_reset_amount", False):
         st.session_state.purchase_amount = 0.0
         st.session_state.purchase_paid = False
@@ -221,8 +162,6 @@ if tab == "Add Purchase":
             st.session_state.add_success = False
 
 # ---- 2. History Tab ----
-from datetime import datetime
-
 elif tab == "History":
     st.header("📜 Purchase History")
     if not purchases:
@@ -339,7 +278,6 @@ elif tab == "History":
                 </div>
                 """, unsafe_allow_html=True)
 
-
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
     st.header("💳 Cards")
@@ -416,4 +354,4 @@ elif tab == "Cards":
     else:
         st.info("No cards added yet.")
 
-st.caption("Made for iPhone, by you! 🚀")
+st.caption("by Mohammed Salman! 🚀")
