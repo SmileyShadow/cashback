@@ -68,11 +68,16 @@ def load_purchases():
     return records
 
 def save_purchases(purchases):
-    purchases_ws.clear()
-    if purchases:
-        purchases_ws.append_row(["date", "card", "category", "amount", "paid"])
-        for p in purchases:
-            purchases_ws.append_row([p["date"], p["card"], p["category"], p["amount"], p["paid"]])
+    # Only clear once and update all at once for all rows
+    values = [["date", "card", "category", "amount", "paid"]]
+    for p in purchases:
+        values.append([p["date"], p["card"], p["category"], p["amount"], p["paid"]])
+    # Don't clear, just batch update the range!
+    purchases_ws.update(f"A1:E{len(values)}", values)
+    # If the new data is shorter than the previous data, delete leftover rows
+    sheet_len = len(purchases_ws.get_all_values())
+    if sheet_len > len(values):
+        purchases_ws.batch_clear([f"A{len(values)+1}:E{sheet_len}"])
 
 if "new_card_categories" not in st.session_state:
     st.session_state.new_card_categories = {}
