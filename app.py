@@ -249,7 +249,7 @@ elif tab == "History":
             df['net'] = df['amount'].astype(float) - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
 
-            # ---- TOTALS BAR ----
+            # --- TOTALS BAR ---
             st.markdown(
                 f"""
                 <div style='display:flex; gap:1em; margin-bottom:1em; justify-content:center; flex-wrap:wrap;'>
@@ -268,25 +268,66 @@ elif tab == "History":
                 </div>
                 """, unsafe_allow_html=True)
 
-            # ---- HEADLINE ----
-            st.markdown(
-                "<div class='purchase-header'>"
-                "<div class='col-date'>Date</div>"
-                "<div class='col-card'>Card</div>"
-                "<div class='col-cat'>Category</div>"
-                "<div class='col-amt'>Amount</div>"
-                "<div class='col-paid'>Paid</div>"
-                "<div class='col-edit'>Edit</div>"
-                "</div>", unsafe_allow_html=True)
+            # --- CSS FOR CARDS & ROWS ---
+            st.markdown("""
+                <style>
+                .purchase-row-box {
+                    background: #fff;
+                    border-radius: 1.1em;
+                    box-shadow: 0 2px 7px #e4eefc70;
+                    margin-bottom: 0.7em;
+                    padding: 0.3em 0.6em 0.2em 0.6em;
+                    overflow-x: auto;
+                }
+                .purchase-row-flex {
+                    display: flex; align-items: center; gap: 0.5em;
+                    min-width: 330px;
+                    color: #222 !important;
+                    font-size: 1.09em;
+                    font-weight: 500;
+                    width: 100%;
+                }
+                .col-date { min-width: 85px; }
+                .col-card { min-width: 55px;}
+                .col-cat { min-width: 45px;}
+                .col-amt { min-width: 65px; text-align:right;}
+                .col-paid { min-width: 33px; text-align:center;}
+                .col-edit { min-width: 43px; text-align:center;}
+                @media (max-width: 650px) {
+                  .purchase-row-flex { font-size: 1em; min-width: 305px;}
+                  .col-date { min-width: 63px;}
+                  .col-card { min-width: 40px;}
+                  .col-cat { min-width: 34px;}
+                  .col-amt { min-width: 52px;}
+                  .col-paid { min-width: 25px;}
+                  .col-edit { min-width: 33px;}
+                }
+                </style>
+            """, unsafe_allow_html=True)
 
-            # ---- PURCHASE ROWS ----
+            # --- HEADLINE ROW ---
+            st.markdown(
+                """
+                <div class='purchase-row-box' style='background:#f4f8ff'>
+                <div class='purchase-row-flex' style='font-weight:600; color:#2851a3;'>
+                    <div class='col-date'>Date</div>
+                    <div class='col-card'>Card</div>
+                    <div class='col-cat'>Category</div>
+                    <div class='col-amt'>Amount</div>
+                    <div class='col-paid'>Paid</div>
+                    <div class='col-edit'>Edit</div>
+                </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # --- PURCHASE ROWS ---
             for i, row in df.iterrows():
                 idx = purchases.index(filtered[i])
                 editing = (st.session_state.edit_row == idx)
                 if not editing:
-                    st.markdown("<div class='purchase-row'>", unsafe_allow_html=True)
+                    st.markdown("<div class='purchase-row-box'>", unsafe_allow_html=True)
                     cols = st.columns([1.5,1,1,1,0.7,0.7])
-                    cols[0].markdown(f"<div class='col-date'>{row['date']}</div>", unsafe_allow_html=True)
+                    cols[0].markdown(f"<div class='purchase-row-flex'><div class='col-date'>{row['date']}</div>", unsafe_allow_html=True)
                     cols[1].markdown(f"<div class='col-card'>{row['card']}</div>", unsafe_allow_html=True)
                     cols[2].markdown(f"<div class='col-cat'>{row['category']}</div>", unsafe_allow_html=True)
                     cols[3].markdown(f"<div class='col-amt'>${row['amount']:.2f}</div>", unsafe_allow_html=True)
@@ -294,8 +335,9 @@ elif tab == "History":
                     if cols[5].button("✏️", key=f"edit_{idx}"):
                         st.session_state.edit_row = idx
                         st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    st.markdown("</div>"*2, unsafe_allow_html=True)  # Close .purchase-row-flex & .purchase-row-box
                 else:
+                    st.markdown("<div class='purchase-row-box'>", unsafe_allow_html=True)
                     ec = st.columns([1.5,1,1,1,0.7,0.7])
                     ec[0].write(row["date"])
                     ec[1].write(row["card"])
@@ -318,6 +360,7 @@ elif tab == "History":
                     if ec[5].button("Cancel", key=f"cancel_{idx}"):
                         st.session_state.edit_row = None
                         st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
 
             # ---- MARK ALL AS PAID BUTTON ----
             if any(not p.get("paid") for p in filtered):
