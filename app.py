@@ -341,8 +341,8 @@ for i, row in df.iterrows():
         cols[0].write(row["date"])
         cols[1].write(row["card"])
         cols[2].write(row["category"])
-        new_amt = cols[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}")
-        new_paid = cols[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}")
+        new_amt = cols[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}", label_visibility="collapsed")
+        new_paid = cols[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}", label_visibility="collapsed")
         if cols[5].button("Save", key=f"save_{idx}"):
             purchases[idx]["amount"] = new_amt
             purchases[idx]["paid"] = new_paid
