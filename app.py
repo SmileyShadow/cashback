@@ -117,17 +117,38 @@ purchases = load_purchases()
 # ---------- HISTORY STYLE ------------
 st.markdown("""
     <style>
+    body, .stApp { background: var(--background-color) !important; }
+    @media (prefers-color-scheme: dark) {
+      .purchase-row { 
+        background: rgba(30,32,37,0.96) !important;
+        color: #e8e8e8 !important;
+        border: 1.5px solid #23252b44;
+      }
+      .purchase-header {
+        background: #23252b !important; color: #aad4ff !important;
+      }
+    }
+    @media (prefers-color-scheme: light) {
+      .purchase-row { 
+        background: #f6fafd !important;
+        color: #222 !important;
+        border: 1.5px solid #e6eaff;
+      }
+      .purchase-header {
+        background: #f4f8ff !important; color: #2851a3 !important;
+      }
+    }
     .purchase-row, .purchase-header {
         display: flex; align-items: center; gap: 0.5em;
         width: 100%; min-width: 390px; overflow-x: auto;
     }
     .purchase-row { 
-        background: #fafcff; border-radius: 1.1em; box-shadow: 0 2px 7px #e4eefc70;
+        border-radius: 1.1em; box-shadow: 0 2px 7px #1a1a1a14;
         padding: 0.7em 0.6em; margin-bottom: 0.55em;
     }
     .purchase-header {
-        font-weight: 600; background: #f4f8ff; border-radius: 0.8em; 
-        padding: 0.7em 1em; margin-bottom: 6px; color: #2851a3;
+        font-weight: 600; border-radius: 0.8em; 
+        padding: 0.7em 1em; margin-bottom: 6px;
     }
     .col-date { min-width: 88px; max-width: 24%; overflow-x:hidden;}
     .col-card { min-width: 55px; max-width: 18%; overflow-x:hidden;}
