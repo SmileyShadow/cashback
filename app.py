@@ -5,12 +5,20 @@ from google.oauth2.service_account import Credentials
 import json
 from datetime import datetime
 
+# -- Add custom Apple Touch Icon and browser tab icon --
 st.markdown("""
     <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2498F7">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="Cashback Cards App", page_icon="💳", layout="centered")
+# -- Set page config: title, browser tab icon (favicon), and layout --
+st.set_page_config(
+    page_title="Cashback Cards App",
+    page_icon="https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png",
+    layout="centered"
+)
 
 SCOPE = [
     "https://spreadsheets.google.com/feeds",
