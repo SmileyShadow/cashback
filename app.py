@@ -323,7 +323,6 @@ elif tab == "History":
             """, unsafe_allow_html=True)
 
             # --- PURCHASE ROWS, each inside its own card ---
-            # --- PURCHASE ROWS, each inside its own card ---
 for i, row in df.iterrows():
     idx = purchases.index(filtered[i])
     editing = (st.session_state.edit_row == idx)
