@@ -7,6 +7,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="Cashback Cards App", page_icon="💳", layout="centered")
 
+# ----- GOOGLE SHEETS -----
 SCOPE = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/spreadsheets",
@@ -51,6 +52,15 @@ def save_cards(cards):
 
 def load_purchases():
     records = purchases_ws.get_all_records()
+    # Ensure correct "paid" type and handle missing keys!
+    for p in records:
+        if "paid" not in p:
+            p["paid"] = False
+        if isinstance(p["paid"], str):
+            if p["paid"].lower() == "true":
+                p["paid"] = True
+            else:
+                p["paid"] = False
     return records
 
 def save_purchases(purchases):
@@ -67,13 +77,19 @@ if "edit_purchase_index" not in st.session_state:
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = "Add Purchase"
 
-# ---- Top Navigation Bar ----
+# ---- Top Navigation ----
 def tabs_nav():
     tabs = {
         "Add Purchase": "🟢 Add Purchase",
         "History": "📜 History",
         "Cards": "💳 Cards",
     }
+    st.markdown("""
+        <style>
+        .stButton button {font-size:1.25rem;padding:0.75em 0;border-radius:2em;}
+        .stTabs [data-baseweb="tab-list"] {justify-content: center;}
+        </style>
+        """, unsafe_allow_html=True)
     cols = st.columns(len(tabs))
     selected = st.session_state.get("current_tab", "Add Purchase")
     for i, (tab, label) in enumerate(tabs.items()):
@@ -82,7 +98,6 @@ def tabs_nav():
     st.markdown("---")
     return st.session_state.get("current_tab", "Add Purchase")
 
-# ---- Main logic ----
 tab = tabs_nav()
 cards = load_cards()
 purchases = load_purchases()
@@ -131,9 +146,9 @@ elif tab == "History":
         else:
             filtered = [p for p in purchases if p["card"] == filter_card]
         if paid_filter == "Paid only":
-            filtered = [p for p in filtered if p["paid"]]
+            filtered = [p for p in filtered if p.get("paid") is True]
         elif paid_filter == "Unpaid only":
-            filtered = [p for p in filtered if not p["paid"]]
+            filtered = [p for p in filtered if not p.get("paid")]
 
         df = pd.DataFrame(filtered)
         if not df.empty:
@@ -143,6 +158,24 @@ elif tab == "History":
             df['cashback'] = df['amount'] * df.apply(get_cashback, axis=1)
             df['net'] = df['amount'] - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
+
+            # --- MODERN Stylish Totals Banner ---
+            st.markdown("""
+                <div style='display:flex; gap:1em; margin-bottom:1em; justify-content:center; flex-wrap:wrap;'>
+                  <div style='background:#2498F7;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #2498f755;'>
+                    <span style='font-size:1.3em;'>💳 Total</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${:.2f}</span>
+                  </div>
+                  <div style='background:#3DBB5B;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #3DBB5B55;'>
+                    <span style='font-size:1.3em;'>💰 Cashback</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${:.2f}</span>
+                  </div>
+                  <div style='background:#FFB200;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #FFB20055;'>
+                    <span style='font-size:1.3em;'>🧾 Net</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${:.2f}</span>
+                  </div>
+                </div>
+            """.format(df['amount'].sum(), df['cashback'].sum(), df['net'].sum()), unsafe_allow_html=True)
 
             # Table with Edit buttons
             st.markdown("### Purchases")
@@ -184,15 +217,13 @@ elif tab == "History":
                     st.rerun()
 
             # Mark all as paid
-            if any(not p["paid"] for p in filtered):
+            if any(not p.get("paid") for p in filtered):
                 if st.button("Mark all visible as paid", type="primary"):
                     for p in filtered:
                         p["paid"] = True
                     save_purchases(purchases)
                     st.success("All visible purchases marked as paid.")
                     st.rerun()
-
-            st.info(f"Total: ${df['amount'].sum():.2f} | Cashback: ${df['cashback'].sum():.2f} | Net: ${df['net'].sum():.2f}")
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
