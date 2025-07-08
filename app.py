@@ -271,95 +271,109 @@ elif tab == "History":
             # --- CSS FOR CARDS & ROWS ---
             st.markdown("""
                 <style>
-                .purchase-row-box {
+                .purchase-card-box {
                     background: #fff;
                     border-radius: 1.1em;
                     box-shadow: 0 2px 7px #e4eefc70;
-                    margin-bottom: 0.7em;
-                    padding: 0.3em 0.6em 0.2em 0.6em;
+                    margin-bottom: 0.75em;
+                    padding: 0.40em 0.4em 0.38em 0.8em;
                     overflow-x: auto;
                 }
-                .purchase-row-flex {
-                    display: flex; align-items: center; gap: 0.5em;
-                    min-width: 330px;
+                .purchase-card-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.3em;
                     color: #222 !important;
-                    font-size: 1.09em;
+                    font-size: 1.08em;
                     font-weight: 500;
                     width: 100%;
+                    min-width: 310px;
+                    letter-spacing: .01em;
                 }
-                .col-date { min-width: 85px; }
-                .col-card { min-width: 55px;}
-                .col-cat { min-width: 45px;}
-                .col-amt { min-width: 65px; text-align:right;}
-                .col-paid { min-width: 33px; text-align:center;}
-                .col-edit { min-width: 43px; text-align:center;}
-                @media (max-width: 650px) {
-                  .purchase-row-flex { font-size: 1em; min-width: 305px;}
-                  .col-date { min-width: 63px;}
-                  .col-card { min-width: 40px;}
-                  .col-cat { min-width: 34px;}
-                  .col-amt { min-width: 52px;}
-                  .col-paid { min-width: 25px;}
-                  .col-edit { min-width: 33px;}
+                .purchase-col-date { min-width: 85px; }
+                .purchase-col-card { min-width: 53px;}
+                .purchase-col-cat { min-width: 43px;}
+                .purchase-col-amt { min-width: 66px; text-align:right;}
+                .purchase-col-paid { min-width: 34px; text-align:center;}
+                .purchase-col-edit { min-width: 42px; text-align:center;}
+                @media (max-width: 600px) {
+                    .purchase-card-row { font-size: .97em; min-width: 280px;}
+                    .purchase-col-date { min-width: 63px;}
+                    .purchase-col-card { min-width: 38px;}
+                    .purchase-col-cat { min-width: 29px;}
+                    .purchase-col-amt { min-width: 51px;}
+                    .purchase-col-paid { min-width: 23px;}
+                    .purchase-col-edit { min-width: 32px;}
                 }
                 </style>
             """, unsafe_allow_html=True)
 
-            # --- HEADLINE ROW ---
-            st.markdown(
-                """
-                <div class='purchase-row-box' style='background:#f4f8ff'>
-                <div class='purchase-row-flex' style='font-weight:600; color:#2851a3;'>
-                    <div class='col-date'>Date</div>
-                    <div class='col-card'>Card</div>
-                    <div class='col-cat'>Category</div>
-                    <div class='col-amt'>Amount</div>
-                    <div class='col-paid'>Paid</div>
-                    <div class='col-edit'>Edit</div>
+            # --- HEADLINE INSIDE CARD ---
+            st.markdown("""
+                <div class='purchase-card-box' style='background:#f4f8ff;'>
+                  <div class='purchase-card-row' style='font-weight:600; color:#2851a3;'>
+                    <div class='purchase-col-date'>Date</div>
+                    <div class='purchase-col-card'>Card</div>
+                    <div class='purchase-col-cat'>Category</div>
+                    <div class='purchase-col-amt'>Amount</div>
+                    <div class='purchase-col-paid'>Paid</div>
+                    <div class='purchase-col-edit'>Edit</div>
+                  </div>
                 </div>
-                </div>
-                """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-            # --- PURCHASE ROWS ---
+            # --- PURCHASE ROWS, each inside its own card ---
             for i, row in df.iterrows():
                 idx = purchases.index(filtered[i])
                 editing = (st.session_state.edit_row == idx)
                 if not editing:
-                    st.markdown("<div class='purchase-row-box'>", unsafe_allow_html=True)
-                    cols = st.columns([1.5,1,1,1,0.7,0.7])
-                    cols[0].markdown(f"<div class='purchase-row-flex'><div class='col-date'>{row['date']}</div>", unsafe_allow_html=True)
-                    cols[1].markdown(f"<div class='col-card'>{row['card']}</div>", unsafe_allow_html=True)
-                    cols[2].markdown(f"<div class='col-cat'>{row['category']}</div>", unsafe_allow_html=True)
-                    cols[3].markdown(f"<div class='col-amt'>${row['amount']:.2f}</div>", unsafe_allow_html=True)
-                    cols[4].markdown(f"<div class='col-paid'>{row['paid_str']}</div>", unsafe_allow_html=True)
-                    if cols[5].button("✏️", key=f"edit_{idx}"):
-                        st.session_state.edit_row = idx
-                        st.rerun()
-                    st.markdown("</div>"*2, unsafe_allow_html=True)  # Close .purchase-row-flex & .purchase-row-box
+                    st.markdown(
+                        f"""
+                        <div class='purchase-card-box'>
+                          <div class='purchase-card-row'>
+                            <div class='purchase-col-date'>{row['date']}</div>
+                            <div class='purchase-col-card'>{row['card']}</div>
+                            <div class='purchase-col-cat'>{row['category']}</div>
+                            <div class='purchase-col-amt'>${row['amount']:.2f}</div>
+                            <div class='purchase-col-paid'>{row['paid_str']}</div>
+                            <div class='purchase-col-edit'>
+                                {"<span></span>"}
+                            </div>
+                          </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    # Place the edit button with Streamlit so it always works:
+                    cols = st.columns([1.8,1,1,1,0.9,0.7])
+                    with cols[5]:
+                        if st.button("✏️", key=f"edit_{idx}"):
+                            st.session_state.edit_row = idx
+                            st.rerun()
                 else:
-                    st.markdown("<div class='purchase-row-box'>", unsafe_allow_html=True)
-                    ec = st.columns([1.5,1,1,1,0.7,0.7])
+                    st.markdown(
+                        "<div class='purchase-card-box'>", unsafe_allow_html=True)
+                    ec = st.columns([1.8,1,1,1,0.9,0.7])
                     ec[0].write(row["date"])
                     ec[1].write(row["card"])
                     ec[2].write(row["category"])
                     new_amt = ec[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}")
                     new_paid = ec[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}")
-                    if ec[5].button("Save", key=f"save_{idx}"):
-                        purchases[idx]["amount"] = new_amt
-                        purchases[idx]["paid"] = new_paid
-                        save_purchases(purchases)
-                        st.success("Purchase updated!")
-                        st.session_state.edit_row = None
-                        st.rerun()
-                    if ec[5].button("Delete", key=f"delete_{idx}"):
-                        purchases.pop(idx)
-                        save_purchases(purchases)
-                        st.success("Purchase deleted!")
-                        st.session_state.edit_row = None
-                        st.rerun()
-                    if ec[5].button("Cancel", key=f"cancel_{idx}"):
-                        st.session_state.edit_row = None
-                        st.rerun()
+                    with ec[5]:
+                        if st.button("Save", key=f"save_{idx}"):
+                            purchases[idx]["amount"] = new_amt
+                            purchases[idx]["paid"] = new_paid
+                            save_purchases(purchases)
+                            st.success("Purchase updated!")
+                            st.session_state.edit_row = None
+                            st.rerun()
+                        if st.button("Delete", key=f"delete_{idx}"):
+                            purchases.pop(idx)
+                            save_purchases(purchases)
+                            st.success("Purchase deleted!")
+                            st.session_state.edit_row = None
+                            st.rerun()
+                        if st.button("Cancel", key=f"cancel_{idx}"):
+                            st.session_state.edit_row = None
+                            st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
 
             # ---- MARK ALL AS PAID BUTTON ----
