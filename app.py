@@ -4,10 +4,10 @@ import gspread
 from google.oauth2.service_account import Credentials
 import json
 from datetime import datetime
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Cashback Cards App", page_icon="💳", layout="centered")
 
-# --- Google Sheets Authentication ---
 SCOPE = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/spreadsheets",
@@ -17,91 +17,115 @@ SCOPE = [
 
 @st.cache_resource(ttl=300)
 def get_gsheets():
-    try:
-        credentials = Credentials.from_service_account_info(
-            json.loads(st.secrets["GCP_SERVICE_ACCOUNT"]), scopes=SCOPE)
-        gc = gspread.authorize(credentials)
-        sh = gc.open("cashback_app")
-        cards_ws = sh.worksheet("cards")
-        purchases_ws = sh.worksheet("purchases")
-        return cards_ws, purchases_ws
-    except Exception as e:
-        st.error(f"🔴 Google Sheets setup error: {e}")
-        st.stop()
+    credentials = Credentials.from_service_account_info(
+        json.loads(st.secrets["GCP_SERVICE_ACCOUNT"]), scopes=SCOPE)
+    gc = gspread.authorize(credentials)
+    sh = gc.open("cashback_app")
+    cards_ws = sh.worksheet("cards")
+    purchases_ws = sh.worksheet("purchases")
+    return cards_ws, purchases_ws
 
 cards_ws, purchases_ws = get_gsheets()
 
 def load_cards():
-    try:
-        records = cards_ws.get_all_records()
-        cards = {}
-        for row in records:
-            name = row["card_name"]
-            category = row["category"]
-            percent = float(row["cashback_percent"])
-            if name not in cards:
-                cards[name] = {}
-            cards[name][category] = percent
-        return cards
-    except Exception as e:
-        st.error(f"🔴 Error loading cards: {e}")
-        st.stop()
+    records = cards_ws.get_all_records()
+    cards = {}
+    for row in records:
+        name = row["card_name"]
+        category = row["category"]
+        percent = float(row["cashback_percent"])
+        if name not in cards:
+            cards[name] = {}
+        cards[name][category] = percent
+    return cards
 
 def save_cards(cards):
-    try:
-        rows = []
-        for card, categories in cards.items():
-            for category, percent in categories.items():
-                rows.append({"card_name": card, "category": category, "cashback_percent": percent})
-        cards_ws.clear()
-        if rows:
-            cards_ws.append_row(["card_name", "category", "cashback_percent"])
-            for row in rows:
-                cards_ws.append_row([row["card_name"], row["category"], row["cashback_percent"]])
-    except Exception as e:
-        st.error(f"🔴 Error saving cards: {e}")
-        st.stop()
+    rows = []
+    for card, categories in cards.items():
+        for category, percent in categories.items():
+            rows.append({"card_name": card, "category": category, "cashback_percent": percent})
+    cards_ws.clear()
+    if rows:
+        cards_ws.append_row(["card_name", "category", "cashback_percent"])
+        for row in rows:
+            cards_ws.append_row([row["card_name"], row["category"], row["cashback_percent"]])
 
 def load_purchases():
-    try:
-        records = purchases_ws.get_all_records()
-        return records
-    except Exception as e:
-        st.error(f"🔴 Error loading purchases: {e}")
-        st.stop()
+    records = purchases_ws.get_all_records()
+    return records
 
 def save_purchases(purchases):
-    try:
-        purchases_ws.clear()
-        if purchases:
-            purchases_ws.append_row(list(purchases[0].keys()))
-            for p in purchases:
-                purchases_ws.append_row(list(p.values()))
-    except Exception as e:
-        st.error(f"🔴 Error saving purchases: {e}")
-        st.stop()
+    purchases_ws.clear()
+    if purchases:
+        purchases_ws.append_row(list(purchases[0].keys()))
+        for p in purchases:
+            purchases_ws.append_row(list(p.values()))
 
 if "new_card_categories" not in st.session_state:
     st.session_state.new_card_categories = {}
+if "edit_purchase_index" not in st.session_state:
+    st.session_state.edit_purchase_index = None
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = "Add Purchase"
 
-def tabs_nav():
-    tabs = {
-        "Add Purchase": "🟢",
-        "History": "📜",
-        "Cards": "💳",
-    }
-    cols = st.columns(len(tabs))
-    selected = st.session_state.get("current_tab", "Add Purchase")
-    for i, (tab, icon) in enumerate(tabs.items()):
-        if cols[i].button(f"{icon}\n{tab}", use_container_width=True):
-            st.session_state.current_tab = tab
-    st.markdown("<br>", unsafe_allow_html=True)  # spacing
-    return st.session_state.get("current_tab", "Add Purchase")
+# ---- Bottom Navigation Bar ----
+def bottom_nav():
+    st.markdown(
+        """
+        <style>
+        .bottom-nav {
+            position: fixed;
+            left: 0; right: 0; bottom: 0;
+            background: #F3F8FF;
+            border-top: 1px solid #EEE;
+            z-index: 999;
+            height: 68px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .bottom-nav .tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px 0 0 0;
+            font-size: 23px;
+            color: #888;
+            font-weight: 600;
+            cursor: pointer;
+            border-top: 3px solid transparent;
+        }
+        .bottom-nav .selected {
+            color: #2498F7;
+            border-top: 3px solid #2498F7;
+            background: #eaf3fb;
+        }
+        .block-container { padding-bottom: 75px !important; }
+        </style>
+        """, unsafe_allow_html=True)
+
+    nav = st.session_state.get("current_tab", "Add Purchase")
+    tabs = [("Add Purchase", "🟢"), ("History", "📜"), ("Cards", "💳")]
+
+    html = '<div class="bottom-nav">'
+    for name, icon in tabs:
+        selected = "selected" if nav == name else ""
+        html += f'<div class="tab {selected}" onclick="window.parent.postMessage(\'{name}\', \'*\')">{icon}<br>{name}</div>'
+    html += '</div>'
+    components.html(html, height=72)
+
+# Listen for tab change (with a workaround)
+import streamlit_js_eval
+tab_message = streamlit_js_eval.streamlit_js_eval(
+    js_expressions="parent.window.addEventListener('message', (e)=>{window.tabnav = e.data;}); window.tabnav",
+    key="tabnav", default_value=None)
+if tab_message and tab_message in ["Add Purchase", "History", "Cards"]:
+    st.session_state.current_tab = tab_message
+    st.rerun()
+tab = st.session_state.get("current_tab", "Add Purchase")
 
 # ---- Main logic ----
 cards = load_cards()
 purchases = load_purchases()
-tab = tabs_nav()
 
 # ---- 1. Add Purchase (Main Tab) ----
 if tab == "Add Purchase":
@@ -130,7 +154,7 @@ if tab == "Add Purchase":
             purchases.append(new_purchase)
             save_purchases(purchases)
             st.success("Purchase added!")
-            st.experimental_rerun()
+            st.rerun()
 
 # ---- 2. History Tab ----
 elif tab == "History":
@@ -138,12 +162,18 @@ elif tab == "History":
     if not purchases:
         st.info("No purchases yet.")
     else:
+        # Filter by card & paid status
         all_cards = ["All"] + list(cards.keys())
         filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
+        paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], horizontal=True)
         if filter_card == "All":
-            filtered = purchases
+            filtered = purchases.copy()
         else:
             filtered = [p for p in purchases if p["card"] == filter_card]
+        if paid_filter == "Paid only":
+            filtered = [p for p in filtered if p["paid"]]
+        elif paid_filter == "Unpaid only":
+            filtered = [p for p in filtered if not p["paid"]]
 
         df = pd.DataFrame(filtered)
         if not df.empty:
@@ -153,43 +183,54 @@ elif tab == "History":
             df['cashback'] = df['amount'] * df.apply(get_cashback, axis=1)
             df['net'] = df['amount'] - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
-            st.dataframe(
-                df[["date","card","category","amount","paid_str","cashback %","cashback","net"]],
-                column_config={
-                    "amount": st.column_config.NumberColumn("Amount", format="$%.2f"),
-                    "cashback": st.column_config.NumberColumn("Cashback", format="$%.2f"),
-                    "net": st.column_config.NumberColumn("Net", format="$%.2f"),
-                    "cashback %": st.column_config.NumberColumn("Cashback %", format="%.1f%%"),
-                },
-                hide_index=True,
-                use_container_width=True,
-            )
 
-            # Inline edit/delete/paid toggle
+            # Table with Edit buttons
+            st.markdown("### Purchases")
             for i, row in df.iterrows():
-                with st.expander(f"{row['date']} | {row['card']} | {row['category']} | ${row['amount']:.2f}"):
-                    idx = purchases.index(filtered[i])
-                    new_amount = st.number_input("Edit Amount", min_value=0.01, value=float(row['amount']), key=f"edit_amt_{i}")
-                    new_paid = st.checkbox("Paid?", value=row['paid'], key=f"edit_paid_{i}")
-                    if st.button("Save Edit", key=f"saveedit_{i}"):
-                        purchases[idx]['amount'] = new_amount
-                        purchases[idx]['paid'] = new_paid
-                        save_purchases(purchases)
-                        st.success("Updated!")
-                        st.experimental_rerun()
-                    if st.button("Delete Purchase", key=f"delpur_{i}"):
-                        purchases.pop(idx)
-                        save_purchases(purchases)
-                        st.success("Deleted!")
-                        st.experimental_rerun()
+                c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns([2,2,2,2,2,2,2,2,1])
+                c1.write(row["date"])
+                c2.write(row["card"])
+                c3.write(row["category"])
+                c4.write(f"${row['amount']:.2f}")
+                c5.write(row["paid_str"])
+                c6.write(f"{row['cashback %']:.1f}%")
+                c7.write(f"${row['cashback']:.2f}")
+                c8.write(f"${row['net']:.2f}")
+                edit_btn = c9.button("✏️", key=f"editbtn_{i}")
+                if edit_btn:
+                    st.session_state.edit_purchase_index = purchases.index(filtered[i])
+
+            # Edit modal for selected purchase
+            if st.session_state.edit_purchase_index is not None:
+                p = purchases[st.session_state.edit_purchase_index]
+                st.markdown("### Edit Purchase")
+                edit_amount = st.number_input("Edit Amount", min_value=0.01, value=float(p["amount"]), key="edit_amount")
+                edit_paid = st.checkbox("Paid?", value=p["paid"], key="edit_paid")
+                if st.button("Save Edit", key="saveeditbtn"):
+                    purchases[st.session_state.edit_purchase_index]["amount"] = edit_amount
+                    purchases[st.session_state.edit_purchase_index]["paid"] = edit_paid
+                    save_purchases(purchases)
+                    st.session_state.edit_purchase_index = None
+                    st.success("Purchase updated!")
+                    st.rerun()
+                if st.button("Delete Purchase", key="deletebtn"):
+                    purchases.pop(st.session_state.edit_purchase_index)
+                    save_purchases(purchases)
+                    st.session_state.edit_purchase_index = None
+                    st.success("Purchase deleted!")
+                    st.rerun()
+                if st.button("Cancel", key="cancelbtn"):
+                    st.session_state.edit_purchase_index = None
+                    st.rerun()
+
             # Mark all as paid
             if any(not p["paid"] for p in filtered):
-                if st.button("Mark all as paid", type="primary"):
+                if st.button("Mark all visible as paid", type="primary"):
                     for p in filtered:
                         p["paid"] = True
                     save_purchases(purchases)
-                    st.success("All marked as paid.")
-                    st.experimental_rerun()
+                    st.success("All visible purchases marked as paid.")
+                    st.rerun()
 
             st.info(f"Total: ${df['amount'].sum():.2f} | Cashback: ${df['cashback'].sum():.2f} | Net: ${df['net'].sum():.2f}")
 
@@ -216,26 +257,28 @@ elif tab == "Cards":
                 colA.write(f"- {cat}: {pct*100:.1f}% ")
                 if colB.button("🗑️ Remove", key=f"delcat_{cat}"):
                     st.session_state.new_card_categories.pop(cat)
-                    st.experimental_rerun()
+                    st.rerun()
         if st.button("Create Card", use_container_width=True):
             if card_name and st.session_state.new_card_categories:
                 cards[card_name] = st.session_state.new_card_categories.copy()
                 save_cards(cards)
                 st.session_state.new_card_categories = {}
                 st.success(f"Card '{card_name}' created.")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Enter card name and at least one category.")
 
     if cards:
         for card, cats in list(cards.items()):
             with st.expander(f"✏️ Edit Card: {card}"):
+                # Delete card
                 del_card = st.button(f"🗑️ Delete Card", key=f"delcard_{card}")
                 if del_card:
                     cards.pop(card)
                     save_cards(cards)
                     st.success(f"Deleted card '{card}'")
-                    st.experimental_rerun()
+                    st.rerun()
+                # Edit existing categories
                 for cat, pct in list(cats.items()):
                     col1, col2, col3 = st.columns([3,2,1])
                     with col1:
@@ -246,17 +289,33 @@ elif tab == "Cards":
                         if st.button("🗑️ Remove", key=f"removecat_{card}_{cat}"):
                             cards[card].pop(cat)
                             save_cards(cards)
-                            st.experimental_rerun()
+                            st.rerun()
                     # Update category name or percent
                     if new_cat_name != cat and new_cat_name != "":
                         cards[card][new_cat_name] = cards[card].pop(cat)
                         save_cards(cards)
-                        st.experimental_rerun()
+                        st.rerun()
                     if new_pct != pct*100:
                         cards[card][new_cat_name] = new_pct/100.0
                         save_cards(cards)
-                        st.experimental_rerun()
+                        st.rerun()
+                # Add new category to existing card
+                colx1, colx2, colx3 = st.columns([3,2,1])
+                with colx1:
+                    extra_cat = st.text_input("New Category", key=f"extra_cat_{card}")
+                with colx2:
+                    extra_pct = st.number_input("% Cashback", 0.0, 100.0, 1.0, step=0.1, key=f"extra_pct_{card}")
+                with colx3:
+                    if st.button("Add to Card", key=f"add_extra_{card}"):
+                        if extra_cat and extra_pct > 0:
+                            cards[card][extra_cat] = extra_pct / 100.0
+                            save_cards(cards)
+                            st.success(f"Added category '{extra_cat}' to {card}")
+                            st.rerun()
     else:
         st.info("No cards added yet.")
+
+# --- Place navigation at the bottom ---
+bottom_nav()
 
 st.caption("Made for iPhone, by you! 🚀")
