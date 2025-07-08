@@ -189,55 +189,47 @@ elif tab == "History":
             df['net'] = df['amount'].astype(float) - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
 
-            # <<< MOVE THE HEADER TO HERE >>>
-            st.markdown("""
-                <div style="font-weight:600; background:#f4f8ff; border-radius:0.8em; padding:0.7em 1em; margin-bottom:8px; display:flex; gap:1.2em; color:#2851a3;">
-                    <div style='width:110px'>Date</div>
-                    <div style='width:70px'>Card</div>
-                    <div style='width:60px'>Category</div>
-                    <div style='width:60px'>Amount</div>
-                    <div style='width:40px'>Paid</div>
-                    <div style='width:50px'>Edit</div>
-                </div>
-            """, unsafe_allow_html=True)
+            # HEADLINE (same columns and alignment as purchase rows)
+            hc = st.columns([1.5,1,1,1,0.7,0.7])
+            hc[0].markdown("**Date**")
+            hc[1].markdown("**Card**")
+            hc[2].markdown("**Category**")
+            hc[3].markdown("**Amount**")
+            hc[4].markdown("**Paid**")
+            hc[5].markdown("**Edit**")
 
             for i, row in df.iterrows():
                 idx = purchases.index(filtered[i])
                 editing = (st.session_state.edit_row == idx)
-                with st.container():
-                    if not editing:
-                        c = st.columns([1.4,1,1,1,0.8,0.8])
-                        c[0].write(row["date"])
-                        c[1].write(row["card"])
-                        c[2].write(row["category"])
-                        c[3].write(f"${row['amount']:.2f}")
-                        c[4].write(row["paid_str"])
-                        if c[5].button("✏️", key=f"edit_{idx}"):
-                            st.session_state.edit_row = idx
-                            st.rerun()
-                    else:
-                        c = st.columns([1.4,1,1,1,0.8,0.8,1])
-                        c[0].write(row["date"])
-                        c[1].write(row["card"])
-                        c[2].write(row["category"])
-                        new_amt = c[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}")
-                        new_paid = c[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}")
-                        if c[5].button("Save", key=f"save_{idx}"):
-                            purchases[idx]["amount"] = new_amt
-                            purchases[idx]["paid"] = new_paid
-                            save_purchases(purchases)
-                            st.success("Purchase updated!")
-                            st.session_state.edit_row = None
-                            st.rerun()
-                        if c[6].button("Delete", key=f"delete_{idx}"):
-                            purchases.pop(idx)
-                            save_purchases(purchases)
-                            st.success("Purchase deleted!")
-                            st.session_state.edit_row = None
-                            st.rerun()
-                        if c[6].button("Cancel", key=f"cancel_{idx}"):
-                            st.session_state.edit_row = None
-                            st.rerun()
+                c = st.columns([1.5,1,1,1,0.7,0.7])
+                if not editing:
+                    c[0].write(row["date"])
+                    c[1].write(row["card"])
+                    c[2].write(row["category"])
+                    c[3].write(f"${row['amount']:.2f}")
+                    c[4].write(row["paid_str"])
+                    if c[5].button("✏️", key=f"edit_{idx}"):
+                        st.session_state.edit_row = idx
+                        st.rerun()
+                else:
+                    new_amt = c[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}")
+                    new_paid = c[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}")
+                    if c[5].button("Save", key=f"save_{idx}"):
+                        purchases[idx]["amount"] = new_amt
+                        purchases[idx]["paid"] = new_paid
+                        save_purchases(purchases)
+                        st.success("Purchase updated!")
+                        st.session_state.edit_row = None
+                        st.rerun()
+                    if c[5].button("Delete", key=f"delete_{idx}"):
+                        purchases.pop(idx)
+                        save_purchases(purchases)
+                        st.success("Purchase deleted!")
+                        st.session_state.edit_row = None
+                        st.rerun()
+                    if c[5].button("Cancel", key=f"cancel_{idx}"):
+                        st.session_state.edit_row = None
+                        st.rerun()
 
             if any(not p.get("paid") for p in filtered):
                 if st.button("Mark all visible as paid", type="primary"):
