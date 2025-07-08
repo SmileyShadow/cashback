@@ -5,6 +5,11 @@ from google.oauth2.service_account import Credentials
 import json
 from datetime import datetime
 
+st.markdown("""
+    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+""", unsafe_allow_html=True)
+
 st.set_page_config(page_title="Cashback Cards App", page_icon="💳", layout="centered")
 
 SCOPE = [
