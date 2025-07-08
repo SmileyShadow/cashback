@@ -221,6 +221,8 @@ if tab == "Add Purchase":
             st.session_state.add_success = False
 
 # ---- 2. History Tab ----
+from datetime import datetime
+
 elif tab == "History":
     st.header("📜 Purchase History")
     if not purchases:
@@ -244,12 +246,13 @@ elif tab == "History":
                     return float(cards.get(row['card'], {}).get(row['category'], 0))
                 except Exception:
                     return 0
-            df['cashback %'] = df.apply(get_cashback, axis=1) * 100
-            df['cashback'] = df['amount'].astype(float) * df.apply(get_cashback, axis=1)
+            df['cashback_percent'] = df.apply(get_cashback, axis=1)
+            df['cashback'] = df['amount'].astype(float) * df['cashback_percent']
             df['net'] = df['amount'].astype(float) - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
+            df['date_only'] = df['date'].apply(lambda x: str(x)[:10] if isinstance(x, str) else x.strftime('%Y-%m-%d'))
 
-            # --- FLEXBOX STYLE: Always one line, scrolls horizontally ---
+            # --- FLEXBOX STYLE ---
             st.markdown("""
             <style>
             .flex-table-row {
@@ -273,7 +276,7 @@ elif tab == "History":
                 text-align: left;
                 white-space: nowrap;
             }
-            .flex-table-cell.amount { text-align: right; }
+            .flex-table-cell.amount, .flex-table-cell.cashback, .flex-table-cell.net { text-align: right; }
             .flex-table-cell.paid { text-align: center;}
             .flex-table-cell.edit { text-align: center;}
             @media (max-width: 650px) {
@@ -282,19 +285,42 @@ elif tab == "History":
             </style>
             """, unsafe_allow_html=True)
 
-            # --- HEADER ---
+            # --- HEADER (directly above rows!) ---
             st.markdown("""
             <div class="flex-table-row" style="background:#eef1f8;font-weight:700;color:#2851a3;">
               <div class="flex-table-cell">Date</div>
               <div class="flex-table-cell">Card</div>
               <div class="flex-table-cell">Category</div>
               <div class="flex-table-cell amount">Amount</div>
+              <div class="flex-table-cell cashback">Cashback</div>
+              <div class="flex-table-cell net">Net</div>
               <div class="flex-table-cell paid">Paid</div>
               <div class="flex-table-cell edit">Edit</div>
             </div>
             """, unsafe_allow_html=True)
 
-            # --- TOTALS BAR (Optional) ---
+            # --- PURCHASE ROWS (Each row = one line, always) ---
+            for i, row in df.iterrows():
+                st.markdown(
+                    f"""
+                    <div class="flex-table-row">
+                      <div class="flex-table-cell">{row['date_only']}</div>
+                      <div class="flex-table-cell">{row['card']}</div>
+                      <div class="flex-table-cell">{row['category']}</div>
+                      <div class="flex-table-cell amount">${row['amount']:.2f}</div>
+                      <div class="flex-table-cell cashback">${row['cashback']:.2f}</div>
+                      <div class="flex-table-cell net">${row['net']:.2f}</div>
+                      <div class="flex-table-cell paid">{row['paid_str']}</div>
+                      <div class="flex-table-cell edit">
+                        <a href="javascript:window.alert('Editing is not interactive in HTML. For live edit, add a form below!')" 
+                           style="color:#1f6fd4;text-decoration:none;font-size:1.2em;">✏️</a>
+                      </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            # --- TOTALS BAR (Optional, below table) ---
             st.markdown(
                 f"""
                 <div style='display:flex; gap:1em; margin-bottom:1em; justify-content:center; flex-wrap:wrap;'>
@@ -312,26 +338,6 @@ elif tab == "History":
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
-
-            # --- PURCHASE ROWS (Each row = one line, always) ---
-            for i, row in df.iterrows():
-                st.markdown(
-                    f"""
-                    <div class="flex-table-row">
-                      <div class="flex-table-cell">{row['date']}</div>
-                      <div class="flex-table-cell">{row['card']}</div>
-                      <div class="flex-table-cell">{row['category']}</div>
-                      <div class="flex-table-cell amount">${row['amount']:.2f}</div>
-                      <div class="flex-table-cell paid">{row['paid_str']}</div>
-                      <div class="flex-table-cell edit">
-                        <a href="javascript:window.alert('Edit not interactive in HTML, but you can enable an edit form below the row!')" 
-                           style="color:#1f6fd4;text-decoration:none;font-size:1.2em;">✏️</a>
-                      </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
 
 
 # ---- 3. Cards Tab ----
