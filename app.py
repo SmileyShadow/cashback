@@ -86,6 +86,8 @@ if "purchase_paid" not in st.session_state:
     st.session_state.purchase_paid = False
 if "add_success" not in st.session_state:
     st.session_state.add_success = False
+if "should_reset_amount" not in st.session_state:
+    st.session_state.should_reset_amount = False
 if "edit_row" not in st.session_state:
     st.session_state.edit_row = None
 
@@ -115,6 +117,12 @@ purchases = load_purchases()
 # ---- 1. Add Purchase (Main Tab) ----
 if tab == "Add Purchase":
     st.header("🟢 Add Purchase")
+    # -- Reset fields at the start of the rerun, if needed --
+    if st.session_state.get("should_reset_amount", False):
+        st.session_state.purchase_amount = 0.0
+        st.session_state.purchase_paid = False
+        st.session_state.should_reset_amount = False
+
     if not cards:
         st.info("Please add a card first in the 'Cards' tab.")
     else:
@@ -146,8 +154,7 @@ if tab == "Add Purchase":
                 purchases.append(new_purchase)
                 save_purchases(purchases)
                 st.session_state.add_success = True
-                st.session_state.purchase_amount = 0.0
-                st.session_state.purchase_paid = False
+                st.session_state.should_reset_amount = True
                 st.rerun()
         if st.session_state.add_success:
             st.toast("Purchase added successfully!", icon="✅")
@@ -156,7 +163,6 @@ if tab == "Add Purchase":
 # ---- 2. History Tab ----
 elif tab == "History":
     st.header("📜 Purchase History")
-    # Show a nice headline (column headers)
     st.markdown("""
         <div style="font-weight:600; background:#f4f8ff; border-radius:0.8em; padding:0.7em 1em; margin-bottom:8px; display:flex; gap:1.2em; color:#2851a3;">
             <div style='width:110px'>Date</div>
