@@ -249,157 +249,86 @@ elif tab == "History":
             df['net'] = df['amount'].astype(float) - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
 
-            # --- FLEX CSS: One line per purchase, box style ---
+            # --- STYLE ---
             st.markdown("""
             <style>
-            .purchase-card-box {
-                background: #20232a;
-                border-radius: 1em;
-                box-shadow: 0 2px 7px #12141690;
-                margin-bottom: 0.65em;
-                padding: 0.28em 0.6em;
-                overflow-x: auto;
-            }
-            .purchase-card-row {
-                display: flex;
-                align-items: center;
-                color: #f4f4f4 !important;
-                font-size: 1.07em;
-                font-weight: 500;
+            .purchase-box {
+                background: #fff !important;
+                color: #232629 !important;
+                border-radius: 1.1em;
+                box-shadow: 0 2px 12px #c5c6c980;
+                margin-bottom: 0.7em;
+                padding: 0.1em 0.4em 0.1em 0.5em;
                 width: 100%;
-                min-width: 380px;
-                white-space: nowrap;
             }
-            .purchase-col-date { min-width: 85px; }
-            .purchase-col-card { min-width: 57px;}
-            .purchase-col-cat { min-width: 48px;}
-            .purchase-col-amt { min-width: 76px; text-align:right;}
-            .purchase-col-paid { min-width: 40px; text-align:center;}
-            .purchase-col-edit { min-width: 48px; text-align:center;}
-            .purchase-header-box {
-                background: #252a32;
-                border-radius: 1em;
-                margin-bottom: 10px;
-                padding: 0.28em 0.6em;
+            .purchase-header .block-container {
+                padding-top: 0;
             }
-            .purchase-header-row {
-                display: flex;
-                align-items: center;
-                font-weight: 700;
-                color: #eaf3ff;
-                font-size: 1.07em;
-                width: 100%;
-                min-width: 380px;
-                white-space: nowrap;
+            .stButton button {
+                background: #232629;
+                color: #fff;
+                border-radius: 0.8em;
+                font-size: 1.02em;
+                padding: 0.26em 1.2em;
             }
-            @media (max-width: 530px) {
-                .purchase-card-row, .purchase-header-row { font-size: .95em; min-width: 310px;}
-                .purchase-col-date { min-width: 58px;}
-                .purchase-col-card { min-width: 36px;}
-                .purchase-col-cat { min-width: 29px;}
-                .purchase-col-amt { min-width: 44px;}
-                .purchase-col-paid { min-width: 19px;}
-                .purchase-col-edit { min-width: 31px;}
+            .stButton button:hover {
+                background: #2851a3;
             }
             </style>
             """, unsafe_allow_html=True)
 
-            # --- TOTALS BAR ---
-            st.markdown(
-                f"""
-                <div style='display:flex; gap:1em; margin-bottom:1em; justify-content:center; flex-wrap:wrap;'>
-                  <div style='background:#2498F7;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #2498f755;'>
-                    <span style='font-size:1.3em;'>💳 Total</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${df['amount'].sum():.2f}</span>
-                  </div>
-                  <div style='background:#3DBB5B;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #3DBB5B55;'>
-                    <span style='font-size:1.3em;'>💰 Cashback</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${df['cashback'].sum():.2f}</span>
-                  </div>
-                  <div style='background:#FFB200;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #FFB20055;'>
-                    <span style='font-size:1.3em;'>🧾 Net</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${df['net'].sum():.2f}</span>
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
+            # --- HEADLINE ---
+            header_cols = st.columns([2.1, 1.6, 1.5, 1.5, 1, 1])
+            header_cols[0].markdown("**Date**")
+            header_cols[1].markdown("**Card**")
+            header_cols[2].markdown("**Category**")
+            header_cols[3].markdown("**Amount**")
+            header_cols[4].markdown("**Paid**")
+            header_cols[5].markdown("**Edit**")
 
-            # --- HEADLINE (column headers) ---
-            st.markdown("""
-                <div class='purchase-header-box'>
-                  <div class='purchase-header-row'>
-                    <div class='purchase-col-date'>Date</div>
-                    <div class='purchase-col-card'>Card</div>
-                    <div class='purchase-col-cat'>Category</div>
-                    <div class='purchase-col-amt'>Amount</div>
-                    <div class='purchase-col-paid'>Paid</div>
-                    <div class='purchase-col-edit'>Edit</div>
-                  </div>
-                </div>
-            """, unsafe_allow_html=True)
-
-            # --- PURCHASE ROWS (one line each, with columns) ---
+            # --- PURCHASE ROWS ---
             for i, row in df.iterrows():
                 idx = purchases.index(filtered[i])
                 editing = (st.session_state.edit_row == idx)
-                st.markdown("<div class='purchase-card-box'><div class='purchase-card-row'>", unsafe_allow_html=True)
-                if not editing:
-                    st.markdown(
-                        f"""
-                        <div class='purchase-col-date'>{row['date']}</div>
-                        <div class='purchase-col-card'>{row['card']}</div>
-                        <div class='purchase-col-cat'>{row['category']}</div>
-                        <div class='purchase-col-amt'>${row['amount']:.2f}</div>
-                        <div class='purchase-col-paid'>{row['paid_str']}</div>
-                        """, unsafe_allow_html=True)
-                    # Edit button in column:
-                    st.markdown("<div class='purchase-col-edit'>", unsafe_allow_html=True)
-                    if st.button("✏️", key=f"edit_{idx}"):
-                        st.session_state.edit_row = idx
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    # Inline edit mode
-                    st.markdown(
-                        f"""
-                        <div class='purchase-col-date'>{row['date']}</div>
-                        <div class='purchase-col-card'>{row['card']}</div>
-                        <div class='purchase-col-cat'>{row['category']}</div>
-                        """, unsafe_allow_html=True)
-                    new_amt = st.number_input(
-                        "", min_value=0.0, value=float(row["amount"]),
-                        key=f"edit_amt_{idx}", label_visibility="collapsed", step=0.01, format="%.2f")
-                    st.markdown(f"<div class='purchase-col-amt'>{''}</div>", unsafe_allow_html=True)
-                    new_paid = st.checkbox(
-                        "", value=row["paid"], key=f"edit_paid_{idx}", label_visibility="collapsed")
-                    st.markdown(f"<div class='purchase-col-paid'>{''}</div>", unsafe_allow_html=True)
-                    st.markdown("<div class='purchase-col-edit'>", unsafe_allow_html=True)
-                    if st.button("Save", key=f"save_{idx}"):
-                        purchases[idx]["amount"] = new_amt
-                        purchases[idx]["paid"] = new_paid
-                        save_purchases(purchases)
-                        st.success("Purchase updated!")
-                        st.session_state.edit_row = None
-                        st.rerun()
-                    if st.button("Delete", key=f"delete_{idx}"):
-                        purchases.pop(idx)
-                        save_purchases(purchases)
-                        st.success("Purchase deleted!")
-                        st.session_state.edit_row = None
-                        st.rerun()
-                    if st.button("Cancel", key=f"cancel_{idx}"):
-                        st.session_state.edit_row = None
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                st.markdown("</div></div>", unsafe_allow_html=True)  # Close row and box
-
-            # ---- MARK ALL AS PAID BUTTON ----
-            if any(not p.get("paid") for p in filtered):
-                if st.button("Mark all visible as paid", type="primary"):
-                    for p in filtered:
-                        p["paid"] = True
-                    save_purchases(purchases)
-                    st.success("All visible purchases marked as paid.")
-                    st.rerun()
+                with st.container():
+                    cols = st.columns([2.1, 1.6, 1.5, 1.5, 1, 1])
+                    with cols[0]:
+                        st.markdown(f"<div class='purchase-box'>{row['date']}</div>", unsafe_allow_html=True)
+                    with cols[1]:
+                        st.markdown(f"<div class='purchase-box'>{row['card']}</div>", unsafe_allow_html=True)
+                    with cols[2]:
+                        st.markdown(f"<div class='purchase-box'>{row['category']}</div>", unsafe_allow_html=True)
+                    with cols[3]:
+                        st.markdown(f"<div class='purchase-box'>${row['amount']:.2f}</div>", unsafe_allow_html=True)
+                    with cols[4]:
+                        st.markdown(f"<div class='purchase-box'>{row['paid_str']}</div>", unsafe_allow_html=True)
+                    with cols[5]:
+                        if not editing:
+                            if st.button("✏️", key=f"edit_{idx}"):
+                                st.session_state.edit_row = idx
+                                st.rerun()
+                        else:
+                            new_amt = st.number_input(
+                                "", min_value=0.0, value=float(row["amount"]),
+                                key=f"edit_amt_{idx}", label_visibility="collapsed", step=0.01, format="%.2f")
+                            new_paid = st.checkbox(
+                                "", value=row["paid"], key=f"edit_paid_{idx}", label_visibility="collapsed")
+                            if st.button("Save", key=f"save_{idx}"):
+                                purchases[idx]["amount"] = new_amt
+                                purchases[idx]["paid"] = new_paid
+                                save_purchases(purchases)
+                                st.success("Purchase updated!")
+                                st.session_state.edit_row = None
+                                st.rerun()
+                            if st.button("Delete", key=f"delete_{idx}"):
+                                purchases.pop(idx)
+                                save_purchases(purchases)
+                                st.success("Purchase deleted!")
+                                st.session_state.edit_row = None
+                                st.rerun()
+                            if st.button("Cancel", key=f"cancel_{idx}"):
+                                st.session_state.edit_row = None
+                                st.rerun()
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
