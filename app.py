@@ -249,7 +249,26 @@ elif tab == "History":
             df['net'] = df['amount'].astype(float) - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
 
-            # Headline row (responsive)
+            # ---- TOTALS BAR ----
+            st.markdown(
+                f"""
+                <div style='display:flex; gap:1em; margin-bottom:1em; justify-content:center; flex-wrap:wrap;'>
+                  <div style='background:#2498F7;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #2498f755;'>
+                    <span style='font-size:1.3em;'>💳 Total</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${df['amount'].sum():.2f}</span>
+                  </div>
+                  <div style='background:#3DBB5B;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #3DBB5B55;'>
+                    <span style='font-size:1.3em;'>💰 Cashback</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${df['cashback'].sum():.2f}</span>
+                  </div>
+                  <div style='background:#FFB200;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #FFB20055;'>
+                    <span style='font-size:1.3em;'>🧾 Net</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${df['net'].sum():.2f}</span>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # ---- HEADLINE ----
             st.markdown(
                 "<div class='purchase-header'>"
                 "<div class='col-date'>Date</div>"
@@ -260,29 +279,22 @@ elif tab == "History":
                 "<div class='col-edit'>Edit</div>"
                 "</div>", unsafe_allow_html=True)
 
+            # ---- PURCHASE ROWS ----
             for i, row in df.iterrows():
                 idx = purchases.index(filtered[i])
                 editing = (st.session_state.edit_row == idx)
                 if not editing:
-                    # Card-style row (fully responsive, black/dark text)
-                    st.markdown(
-                        f"""
-                        <div class='purchase-row'>
-                            <div class='col-date'>{row['date']}</div>
-                            <div class='col-card'>{row['card']}</div>
-                            <div class='col-cat'>{row['category']}</div>
-                            <div class='col-amt'>${row['amount']:.2f}</div>
-                            <div class='col-paid'>{row['paid_str']}</div>
-                            <div class='col-edit'>
-                                <form method='post'>
-                                    <button name='edit_btn_{idx}' type='submit' class='edit-btn'>✏️</button>
-                                </form>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    if st.session_state.get(f"edit_btn_{idx}", False):
+                    st.markdown("<div class='purchase-row'>", unsafe_allow_html=True)
+                    cols = st.columns([1.5,1,1,1,0.7,0.7])
+                    cols[0].markdown(f"<div class='col-date'>{row['date']}</div>", unsafe_allow_html=True)
+                    cols[1].markdown(f"<div class='col-card'>{row['card']}</div>", unsafe_allow_html=True)
+                    cols[2].markdown(f"<div class='col-cat'>{row['category']}</div>", unsafe_allow_html=True)
+                    cols[3].markdown(f"<div class='col-amt'>${row['amount']:.2f}</div>", unsafe_allow_html=True)
+                    cols[4].markdown(f"<div class='col-paid'>{row['paid_str']}</div>", unsafe_allow_html=True)
+                    if cols[5].button("✏️", key=f"edit_{idx}"):
                         st.session_state.edit_row = idx
                         st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
                 else:
                     ec = st.columns([1.5,1,1,1,0.7,0.7])
                     ec[0].write(row["date"])
@@ -307,6 +319,7 @@ elif tab == "History":
                         st.session_state.edit_row = None
                         st.rerun()
 
+            # ---- MARK ALL AS PAID BUTTON ----
             if any(not p.get("paid") for p in filtered):
                 if st.button("Mark all visible as paid", type="primary"):
                     for p in filtered:
