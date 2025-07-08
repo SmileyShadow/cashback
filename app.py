@@ -167,65 +167,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-
-# Headline row (aligned)
-st.markdown(
-    "<div class='purchase-header'>"
-    "<div class='col-date'>Date</div>"
-    "<div class='col-card'>Card</div>"
-    "<div class='col-cat'>Category</div>"
-    "<div class='col-amt'>Amount</div>"
-    "<div class='col-paid'>Paid</div>"
-    "<div class='col-edit'>Edit</div>"
-    "</div>", unsafe_allow_html=True)
-
-for i, row in df.iterrows():
-    idx = purchases.index(filtered[i])
-    editing = (st.session_state.edit_row == idx)
-    if not editing:
-        st.markdown(
-            f"""
-            <div class='purchase-row'>
-                <div class='col-date'>{row['date']}</div>
-                <div class='col-card'>{row['card']}</div>
-                <div class='col-cat'>{row['category']}</div>
-                <div class='col-amt'>${row['amount']:.2f}</div>
-                <div class='col-paid'>{row['paid_str']}</div>
-                <div class='col-edit'>
-                    <form method='post'>
-                        <button name='edit_btn_{idx}' type='submit' class='edit-btn'>✏️</button>
-                    </form>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        # --- Edit "button" workaround for HTML-only
-        if st.session_state.get(f"edit_btn_{idx}", False):
-            st.session_state.edit_row = idx
-            st.rerun()
-    else:
-        ec = st.columns([1.5,1,1,1,0.7,0.7])
-        ec[0].write(row["date"])
-        ec[1].write(row["card"])
-        ec[2].write(row["category"])
-        new_amt = ec[3].number_input("Edit Amount", min_value=0.0, value=float(row["amount"]), key=f"edit_amt_{idx}")
-        new_paid = ec[4].checkbox("Paid", value=row["paid"], key=f"edit_paid_{idx}")
-        if ec[5].button("Save", key=f"save_{idx}"):
-            purchases[idx]["amount"] = new_amt
-            purchases[idx]["paid"] = new_paid
-            save_purchases(purchases)
-            st.success("Purchase updated!")
-            st.session_state.edit_row = None
-            st.rerun()
-        if ec[5].button("Delete", key=f"delete_{idx}"):
-            purchases.pop(idx)
-            save_purchases(purchases)
-            st.success("Purchase deleted!")
-            st.session_state.edit_row = None
-            st.rerun()
-        if ec[5].button("Cancel", key=f"cancel_{idx}"):
-            st.session_state.edit_row = None
-            st.rerun()
-
 # -------------------------------------
 
 # ---- 1. Add Purchase (Main Tab) ----
@@ -318,20 +259,22 @@ elif tab == "History":
                 idx = purchases.index(filtered[i])
                 editing = (st.session_state.edit_row == idx)
                 if not editing:
-                    # Card-style row (fully responsive)
-                    edit_button_html = (
-                        f"<form method='post'><button name='edit_btn_{idx}' type='submit' style='background:#eaf3fb;border:none;border-radius:0.7em;padding:0.38em 0.9em;font-size:1em;cursor:pointer;'>✏️</button></form>"
-                    )
+                    # Card-style row (fully responsive, black/dark text)
                     st.markdown(
-                        f"<div class='purchase-row'>"
-                        f"<div class='col-date'>{row['date']}</div>"
-                        f"<div class='col-card'>{row['card']}</div>"
-                        f"<div class='col-cat'>{row['category']}</div>"
-                        f"<div class='col-amt'>${row['amount']:.2f}</div>"
-                        f"<div class='col-paid'>{row['paid_str']}</div>"
-                        f"<div class='col-edit'>{edit_button_html}</div>"
-                        "</div>", unsafe_allow_html=True)
-                    # --- Edit "button" workaround for HTML-only
+                        f"""
+                        <div class='purchase-row'>
+                            <div class='col-date'>{row['date']}</div>
+                            <div class='col-card'>{row['card']}</div>
+                            <div class='col-cat'>{row['category']}</div>
+                            <div class='col-amt'>${row['amount']:.2f}</div>
+                            <div class='col-paid'>{row['paid_str']}</div>
+                            <div class='col-edit'>
+                                <form method='post'>
+                                    <button name='edit_btn_{idx}' type='submit' class='edit-btn'>✏️</button>
+                                </form>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     if st.session_state.get(f"edit_btn_{idx}", False):
                         st.session_state.edit_row = idx
                         st.rerun()
