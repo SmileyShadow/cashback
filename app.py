@@ -15,59 +15,75 @@ SCOPE = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-if 'gcp_service_account' not in st.session_state:
-    # Load from Streamlit secrets
-    st.session_state.gcp_service_account = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
-credentials = Credentials.from_service_account_info(
-    st.session_state.gcp_service_account, scopes=SCOPE)
-gc = gspread.authorize(credentials)
+@st.cache_resource(ttl=300)
+def get_gsheets():
+    try:
+        credentials = Credentials.from_service_account_info(
+            json.loads(st.secrets["GCP_SERVICE_ACCOUNT"]), scopes=SCOPE)
+        gc = gspread.authorize(credentials)
+        sh = gc.open("cashback_app")
+        cards_ws = sh.worksheet("cards")
+        purchases_ws = sh.worksheet("purchases")
+        return cards_ws, purchases_ws
+    except Exception as e:
+        st.error(f"🔴 Google Sheets setup error: {e}")
+        st.stop()
 
-# --- Your Google Sheet name here ---
-SHEET_NAME = "cashback_app"
-sh = gc.open(SHEET_NAME)
-cards_ws = sh.worksheet("cards")
-purchases_ws = sh.worksheet("purchases")
+cards_ws, purchases_ws = get_gsheets()
 
-# --- Helper functions for Google Sheets ---
 def load_cards():
-    records = cards_ws.get_all_records()
-    cards = {}
-    for row in records:
-        name = row["card_name"]
-        category = row["category"]
-        percent = float(row["cashback_percent"])
-        if name not in cards:
-            cards[name] = {}
-        cards[name][category] = percent
-    return cards
+    try:
+        records = cards_ws.get_all_records()
+        cards = {}
+        for row in records:
+            name = row["card_name"]
+            category = row["category"]
+            percent = float(row["cashback_percent"])
+            if name not in cards:
+                cards[name] = {}
+            cards[name][category] = percent
+        return cards
+    except Exception as e:
+        st.error(f"🔴 Error loading cards: {e}")
+        st.stop()
 
 def save_cards(cards):
-    rows = []
-    for card, categories in cards.items():
-        for category, percent in categories.items():
-            rows.append({"card_name": card, "category": category, "cashback_percent": percent})
-    cards_ws.clear()
-    if rows:
-        cards_ws.append_row(["card_name", "category", "cashback_percent"])
-        for row in rows:
-            cards_ws.append_row([row["card_name"], row["category"], row["cashback_percent"]])
+    try:
+        rows = []
+        for card, categories in cards.items():
+            for category, percent in categories.items():
+                rows.append({"card_name": card, "category": category, "cashback_percent": percent})
+        cards_ws.clear()
+        if rows:
+            cards_ws.append_row(["card_name", "category", "cashback_percent"])
+            for row in rows:
+                cards_ws.append_row([row["card_name"], row["category"], row["cashback_percent"]])
+    except Exception as e:
+        st.error(f"🔴 Error saving cards: {e}")
+        st.stop()
 
 def load_purchases():
-    records = purchases_ws.get_all_records()
-    return records
+    try:
+        records = purchases_ws.get_all_records()
+        return records
+    except Exception as e:
+        st.error(f"🔴 Error loading purchases: {e}")
+        st.stop()
 
 def save_purchases(purchases):
-    purchases_ws.clear()
-    if purchases:
-        purchases_ws.append_row(list(purchases[0].keys()))
-        for p in purchases:
-            purchases_ws.append_row(list(p.values()))
+    try:
+        purchases_ws.clear()
+        if purchases:
+            purchases_ws.append_row(list(purchases[0].keys()))
+            for p in purchases:
+                purchases_ws.append_row(list(p.values()))
+    except Exception as e:
+        st.error(f"🔴 Error saving purchases: {e}")
+        st.stop()
 
-# --- App state (temporary for new categories before card creation) ---
 if "new_card_categories" not in st.session_state:
     st.session_state.new_card_categories = {}
 
-# --- UI Helper: Tabs at the bottom ---
 def tabs_nav():
     tabs = {
         "Add Purchase": "🟢",
@@ -82,11 +98,9 @@ def tabs_nav():
     st.markdown("<br>", unsafe_allow_html=True)  # spacing
     return st.session_state.get("current_tab", "Add Purchase")
 
-# --- Load main data from Google Sheets at start ---
+# ---- Main logic ----
 cards = load_cards()
 purchases = load_purchases()
-
-# --- Main navigation ---
 tab = tabs_nav()
 
 # ---- 1. Add Purchase (Main Tab) ----
@@ -124,7 +138,6 @@ elif tab == "History":
     if not purchases:
         st.info("No purchases yet.")
     else:
-        # Filter by card
         all_cards = ["All"] + list(cards.keys())
         filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
         if filter_card == "All":
@@ -134,7 +147,6 @@ elif tab == "History":
 
         df = pd.DataFrame(filtered)
         if not df.empty:
-            # Calculate cashback and net
             def get_cashback(row):
                 return cards.get(row['card'], {}).get(row['category'], 0)
             df['cashback %'] = df.apply(get_cashback, axis=1) * 100
@@ -156,7 +168,6 @@ elif tab == "History":
             # Inline edit/delete/paid toggle
             for i, row in df.iterrows():
                 with st.expander(f"{row['date']} | {row['card']} | {row['category']} | ${row['amount']:.2f}"):
-                    # Find the index in original purchases list
                     idx = purchases.index(filtered[i])
                     new_amount = st.number_input("Edit Amount", min_value=0.01, value=float(row['amount']), key=f"edit_amt_{i}")
                     new_paid = st.checkbox("Paid?", value=row['paid'], key=f"edit_paid_{i}")
@@ -180,7 +191,6 @@ elif tab == "History":
                     st.success("All marked as paid.")
                     st.experimental_rerun()
 
-            # Totals
             st.info(f"Total: ${df['amount'].sum():.2f} | Cashback: ${df['cashback'].sum():.2f} | Net: ${df['net'].sum():.2f}")
 
 # ---- 3. Cards Tab ----
@@ -217,7 +227,6 @@ elif tab == "Cards":
             else:
                 st.error("Enter card name and at least one category.")
 
-    # List & edit existing cards
     if cards:
         for card, cats in list(cards.items()):
             with st.expander(f"✏️ Edit Card: {card}"):
@@ -247,7 +256,6 @@ elif tab == "Cards":
                         cards[card][new_cat_name] = new_pct/100.0
                         save_cards(cards)
                         st.experimental_rerun()
-
     else:
         st.info("No cards added yet.")
 
