@@ -4,7 +4,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 import json
 from datetime import datetime
-import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Cashback Cards App", page_icon="💳", layout="centered")
 
@@ -68,62 +67,23 @@ if "edit_purchase_index" not in st.session_state:
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = "Add Purchase"
 
-# ---- Bottom Navigation Bar ----
-def bottom_nav():
-    st.markdown(
-        """
-        <style>
-        .bottom-nav {
-            position: fixed;
-            left: 0; right: 0; bottom: 0;
-            background: #F3F8FF;
-            border-top: 1px solid #EEE;
-            z-index: 999;
-            height: 68px;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-        }
-        .bottom-nav .tab {
-            flex: 1;
-            text-align: center;
-            padding: 8px 0 0 0;
-            font-size: 23px;
-            color: #888;
-            font-weight: 600;
-            cursor: pointer;
-            border-top: 3px solid transparent;
-        }
-        .bottom-nav .selected {
-            color: #2498F7;
-            border-top: 3px solid #2498F7;
-            background: #eaf3fb;
-        }
-        .block-container { padding-bottom: 75px !important; }
-        </style>
-        """, unsafe_allow_html=True)
-
-    nav = st.session_state.get("current_tab", "Add Purchase")
-    tabs = [("Add Purchase", "🟢"), ("History", "📜"), ("Cards", "💳")]
-
-    html = '<div class="bottom-nav">'
-    for name, icon in tabs:
-        selected = "selected" if nav == name else ""
-        html += f'<div class="tab {selected}" onclick="window.parent.postMessage(\'{name}\', \'*\')">{icon}<br>{name}</div>'
-    html += '</div>'
-    components.html(html, height=72)
-
-# Listen for tab change (with a workaround)
-import streamlit_js_eval
-tab_message = streamlit_js_eval.streamlit_js_eval(
-    js_expressions="parent.window.addEventListener('message', (e)=>{window.tabnav = e.data;}); window.tabnav",
-    key="tabnav", default_value=None)
-if tab_message and tab_message in ["Add Purchase", "History", "Cards"]:
-    st.session_state.current_tab = tab_message
-    st.rerun()
-tab = st.session_state.get("current_tab", "Add Purchase")
+# ---- Top Navigation Bar ----
+def tabs_nav():
+    tabs = {
+        "Add Purchase": "🟢 Add Purchase",
+        "History": "📜 History",
+        "Cards": "💳 Cards",
+    }
+    cols = st.columns(len(tabs))
+    selected = st.session_state.get("current_tab", "Add Purchase")
+    for i, (tab, label) in enumerate(tabs.items()):
+        if cols[i].button(label, use_container_width=True):
+            st.session_state.current_tab = tab
+    st.markdown("---")
+    return st.session_state.get("current_tab", "Add Purchase")
 
 # ---- Main logic ----
+tab = tabs_nav()
 cards = load_cards()
 purchases = load_purchases()
 
@@ -314,8 +274,5 @@ elif tab == "Cards":
                             st.rerun()
     else:
         st.info("No cards added yet.")
-
-# --- Place navigation at the bottom ---
-bottom_nav()
 
 st.caption("Made for iPhone, by you! 🚀")
