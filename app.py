@@ -163,16 +163,6 @@ if tab == "Add Purchase":
 # ---- 2. History Tab ----
 elif tab == "History":
     st.header("📜 Purchase History")
-    st.markdown("""
-        <div style="font-weight:600; background:#f4f8ff; border-radius:0.8em; padding:0.7em 1em; margin-bottom:8px; display:flex; gap:1.2em; color:#2851a3;">
-            <div style='width:110px'>Date</div>
-            <div style='width:70px'>Card</div>
-            <div style='width:60px'>Category</div>
-            <div style='width:60px'>Amount</div>
-            <div style='width:40px'>Paid</div>
-            <div style='width:50px'>Edit</div>
-        </div>
-    """, unsafe_allow_html=True)
     if not purchases:
         st.info("No purchases yet.")
     else:
@@ -198,6 +188,18 @@ elif tab == "History":
             df['cashback'] = df['amount'].astype(float) * df.apply(get_cashback, axis=1)
             df['net'] = df['amount'].astype(float) - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
+
+            # <<< MOVE THE HEADER TO HERE >>>
+            st.markdown("""
+                <div style="font-weight:600; background:#f4f8ff; border-radius:0.8em; padding:0.7em 1em; margin-bottom:8px; display:flex; gap:1.2em; color:#2851a3;">
+                    <div style='width:110px'>Date</div>
+                    <div style='width:70px'>Card</div>
+                    <div style='width:60px'>Category</div>
+                    <div style='width:60px'>Amount</div>
+                    <div style='width:40px'>Paid</div>
+                    <div style='width:50px'>Edit</div>
+                </div>
+            """, unsafe_allow_html=True)
 
             for i, row in df.iterrows():
                 idx = purchases.index(filtered[i])
