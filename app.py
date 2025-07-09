@@ -21,29 +21,20 @@ PDF_CATEGORY_LABELS = {
     # Add more as needed!
 }
 
-# --- Robust Font Ensurer for PDF ---
-FONT_PATH = "DejaVuSans.ttf"
-FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
-
-def ensure_font():
-    retry = 3
-    while retry > 0:
-        try:
-            if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 100_000:
-                r = requests.get(FONT_URL, timeout=10)
-                with open(FONT_PATH, "wb") as f:
-                    f.write(r.content)
-            from fontTools.ttLib import TTFont
-            _ = TTFont(FONT_PATH)
-            break
-        except Exception:
-            if os.path.exists(FONT_PATH):
-                os.remove(FONT_PATH)
-            retry -= 1
+# --- Streamlit-safe font loader for PDF ---
+def get_dejavu_font_path():
+    font_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
+    temp_dir = tempfile.gettempdir()
+    font_path = os.path.join(temp_dir, "dejavusans_streamlit.ttf")
+    if not os.path.exists(font_path) or os.path.getsize(font_path) < 100_000:
+        r = requests.get(font_url, timeout=10)
+        with open(font_path, "wb") as f:
+            f.write(r.content)
+    return font_path
 
 # --- PDF Receipt Generation ---
 def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
-    ensure_font()
+    FONT_PATH = get_dejavu_font_path()
 
     class PDF(FPDF):
         def header(self):
@@ -266,6 +257,7 @@ def tabs_nav():
 tab = tabs_nav()
 cards = load_cards()
 purchases = load_purchases()
+
 
 # ---- 1. Add Purchase Tab ----
 if tab == "Add Purchase":
