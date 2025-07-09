@@ -216,14 +216,14 @@ elif tab == "History":
             if filter_month != "All":
                 filtered = filtered[filtered['date_dt'].dt.to_period('M').astype(str) == filter_month]
 
-            # --- COLORS (same for both bars) ---
+            # --- COLORS ---
             color_total = "#2874cF"
             color_cashback = "#2ecc71"
             color_net = "#fbc531"
             color_unpaid = "#ea5454"
             color_net_dark = "#34495e"
 
-            # --- TOTALS BAR (Filtered only) ---
+            # --- TOTALS BAR ---
             st.markdown(
                 f"""
                 <div style='display:flex; gap:0.7em; margin-bottom:0.77em; justify-content:center; flex-wrap:wrap;'>
@@ -242,7 +242,7 @@ elif tab == "History":
                 </div>
                 """, unsafe_allow_html=True)
 
-            # --- UNPAID TOTALS BAR (within filtered only, if any unpaid)
+            # --- UNPAID TOTALS BAR ---
             unpaid = filtered[filtered['paid'] == False]
             if not unpaid.empty:
                 st.markdown(
@@ -263,102 +263,83 @@ elif tab == "History":
                     </div>
                     """, unsafe_allow_html=True)
 
-            # --- MOBILE-FIRST FLEX/CARD STYLES ---
+            # --- FLEX ROW TABLE STYLES ---
             st.markdown("""
             <style>
-            /* Table header row: Hide on small screens */
-            .flex-table-row-header {display: flex; background:#eef1f8;font-weight:700;color:#2851a3;border-radius:1.2em; margin-bottom: 5px; }
-            @media (max-width: 650px) {
-              .flex-table-row-header { display: none !important;}
-            }
-
-            /* Desktop row: horizontal, Mobile: stacked card */
-            .purchase-card-row {
+            .flex-table-row, .flex-table-header {
                 display: flex;
-                background: #fff;
-                color: #222;
-                border-radius: 1.2em;
-                box-shadow: 0 2px 10px #d8dbf0;
-                margin-bottom: 0.7em;
-                font-size: 1.04em;
-                font-weight: 500;
                 align-items: center;
-                padding: 0.38em 0.7em;
-                overflow-x: auto;
-                min-width: 320px;
-                max-width: 100vw;
-                flex-wrap: nowrap;
-                gap: 0;
-            }
-            .purchase-card-field {
-                flex: 1 0 70px;
-                padding: 0.22em 0.22em;
-                text-align: left;
-                white-space: nowrap;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-            }
-            .purchase-card-label {
-                font-size: 0.87em;
-                color: #4173b3;
+                background: #eef1f8;
+                color: #2851a3;
                 font-weight: 700;
-                margin-bottom: -2px;
-                letter-spacing: 0.01em;
-                display: none;
+                border-radius: 1.1em;
+                box-shadow: 0 2px 8px #e4eefc50;
+                padding: 0.65em 0.75em;
+                margin-bottom: 7px;
+                min-width: 650px;
+                overflow-x: auto;
+                font-size: 1.09em;
+                gap: 0.3em;
             }
-            .purchase-card-amt, .purchase-card-cash, .purchase-card-net { text-align: right;}
-            .purchase-card-paid { text-align: center;}
-            .purchase-card-edit { text-align: center;}
-
-            .purchase-edit-btn {
+            .flex-table-row {
+                background: #fff !important;
+                color: #222 !important;
+                font-weight: 500;
+                box-shadow: 0 2px 8px #e4eefc80;
+            }
+            .flex-col {
+                min-width: 80px;
+                text-align: left;
+                padding-right: 8px;
+            }
+            .flex-col.amount, .flex-col.cashback, .flex-col.net {
+                text-align: right;
+                min-width: 85px;
+            }
+            .flex-col.paid, .flex-col.edit {
+                text-align: center;
+                min-width: 48px;
+            }
+            .flex-col.edit { padding-left: 6px; }
+            .edit-btn {
                 background: #eaf3fb;
                 color: #1d5ca5;
                 border: none;
                 border-radius: 0.7em;
-                padding: 0.24em 0.9em;
-                font-size: 1.1em;
+                padding: 0.23em 0.9em;
+                font-size: 1.09em;
                 cursor: pointer;
                 font-weight: 600;
                 box-shadow: 0 1px 3px #e1e7f6cc;
                 transition: background 0.18s;
             }
-            .purchase-edit-btn:hover { background: #dbefff; }
-
-            @media (max-width: 650px) {
-                .purchase-card-row {
-                    flex-direction: column;
-                    align-items: stretch;
-                    min-width: 0px;
-                    font-size: 0.99em;
-                    padding: 0.4em 0.54em 0.25em 0.54em;
-                    gap: 0.14em;
-                }
-                .purchase-card-field {
-                    flex: none;
-                    margin-bottom: 1px;
-                }
-                .purchase-card-label {
-                    display: block;
-                    font-size: 1em;
-                    margin-bottom: -2px;
-                }
-                .purchase-card-edit { margin-top: 8px; }
+            .edit-btn:hover { background: #dbefff; }
+            @media (max-width: 700px) {
+                .flex-table-row, .flex-table-header { min-width: 550px; font-size: 1.01em;}
+                .flex-col { min-width: 62px;}
+                .flex-col.amount, .flex-col.cashback, .flex-col.net { min-width: 73px;}
+                .flex-col.paid, .flex-col.edit { min-width: 40px;}
+            }
+            @media (max-width: 450px) {
+                .flex-table-row, .flex-table-header { min-width: 400px; font-size: .98em;}
+                .flex-col { min-width: 48px; }
+                .flex-col.amount, .flex-col.cashback, .flex-col.net { min-width: 60px;}
+                .flex-col.paid, .flex-col.edit { min-width: 36px;}
             }
             </style>
             """, unsafe_allow_html=True)
 
-            # --- HEADER (hidden on mobile) ---
+            # --- HEADER ---
             st.markdown("""
-            <div class="flex-table-row-header">
-              <div class="purchase-card-field">Date</div>
-              <div class="purchase-card-field">Card</div>
-              <div class="purchase-card-field">Category</div>
-              <div class="purchase-card-field purchase-card-amt">Amount</div>
-              <div class="purchase-card-field purchase-card-cash">Cashback</div>
-              <div class="purchase-card-field purchase-card-net">Net</div>
-              <div class="purchase-card-field purchase-card-paid">Paid</div>
-              <div class="purchase-card-field purchase-card-edit">Edit</div>
+            <div class="flex-table-header">
+              <div class="flex-col">Date</div>
+              <div class="flex-col">Card</div>
+              <div class="flex-col">Category</div>
+              <div class="flex-col amount">Amount</div>
+              <div class="flex-col cashback">Cashback</div>
+              <div class="flex-col net">Net</div>
+              <div class="flex-col paid">Paid</div>
+              <div class="flex-col edit">Edit</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -368,22 +349,22 @@ elif tab == "History":
                     idx = row.name
                     st.markdown(
                         f"""
-                        <div class="purchase-card-row">
-                          <div class="purchase-card-field"><span class="purchase-card-label">Date</span>{row['date_only']}</div>
-                          <div class="purchase-card-field"><span class="purchase-card-label">Card</span>{row['card']}</div>
-                          <div class="purchase-card-field"><span class="purchase-card-label">Category</span>{row['category']}</div>
-                          <div class="purchase-card-field purchase-card-amt"><span class="purchase-card-label">Amount</span>${row['amount']:.2f}</div>
-                          <div class="purchase-card-field purchase-card-cash"><span class="purchase-card-label">Cashback</span>${row['cashback']:.2f}</div>
-                          <div class="purchase-card-field purchase-card-net"><span class="purchase-card-label">Net</span>${row['net']:.2f}</div>
-                          <div class="purchase-card-field purchase-card-paid"><span class="purchase-card-label">Paid</span>{row['paid_str']}</div>
-                          <div class="purchase-card-field purchase-card-edit">
+                        <div class="flex-table-row">
+                          <div class="flex-col">{row['date_only']}</div>
+                          <div class="flex-col">{row['card']}</div>
+                          <div class="flex-col">{row['category']}</div>
+                          <div class="flex-col amount">${row['amount']:.2f}</div>
+                          <div class="flex-col cashback">${row['cashback']:.2f}</div>
+                          <div class="flex-col net">${row['net']:.2f}</div>
+                          <div class="flex-col paid">{row['paid_str']}</div>
+                          <div class="flex-col edit">
                             {('<b>Editing…</b>' if st.session_state.get('edit_row') == idx else '')}
                           </div>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
-                    # Show edit button only if not currently editing this row
+                    # Edit button logic
                     if st.session_state.get("edit_row") != idx:
                         if st.button("✏️", key=f"edit_{idx}"):
                             st.session_state.edit_row = idx
@@ -421,6 +402,7 @@ elif tab == "History":
                         st.markdown("</div>", unsafe_allow_html=True)
             else:
                 st.info("No purchases match your filters.")
+
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
