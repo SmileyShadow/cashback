@@ -197,33 +197,56 @@ elif tab == "History":
             df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
             df['date_only'] = df['date_dt'].dt.strftime('%Y-%m-%d')
 
-            # --- TOTALS BAR (Top!) ---
-            st.markdown(
-                f"""
-                <div style='display:flex; gap:1em; margin-bottom:1.2em; justify-content:center; flex-wrap:wrap;'>
-                  <div style='background:#2498F7;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #2498f755;'>
-                    <span style='font-size:1.3em;'>💳 Total</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${df['amount'].sum():.2f}</span>
-                  </div>
-                  <div style='background:#3DBB5B;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #3DBB5B55;'>
-                    <span style='font-size:1.3em;'>💰 Cashback</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${df['cashback'].sum():.2f}</span>
-                  </div>
-                  <div style='background:#FFB200;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #FFB20055;'>
-                    <span style='font-size:1.3em;'>🧾 Net</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${df['net'].sum():.2f}</span>
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
+            # --- FILTERS + TOTALS BAR ON ONE ROW (Responsive) ---
+            st.markdown("""
+                <style>
+                .totals-box {
+                    display: flex; gap: 0.6em; align-items: center;
+                    flex-wrap: wrap; justify-content: flex-end;
+                    min-width: 0;
+                }
+                .totals-card {
+                    background: #f9fcff;
+                    color: #2851a3;
+                    padding: 0.57em 0.8em 0.38em 0.8em;
+                    border-radius: 1.1em;
+                    font-size: 1.03em;
+                    font-weight: 600;
+                    min-width: 78px;
+                    margin-left: 0.12em;
+                    box-shadow: 0 1px 7px #e5eefa33;
+                    text-align: center;
+                    margin-bottom: 3px;
+                }
+                .totals-card.total  { background: #2498F7; color: #fff; }
+                .totals-card.cash   { background: #3DBB5B; color: #fff; }
+                .totals-card.net    { background: #FFB200; color: #fff; }
+                @media (max-width: 600px) {
+                    .totals-box { gap:0.4em; }
+                    .totals-card { padding:0.45em 0.65em 0.23em 0.65em; font-size:0.97em; border-radius:0.83em; min-width:61px; }
+                }
+                </style>
+            """, unsafe_allow_html=True)
 
-            # --- FILTERS (below totals) ---
-            all_cards = ["All"] + list(cards.keys())
-            filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
-            paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], horizontal=True)
-            # -- Month filter --
-            months = df['date_dt'].dt.to_period('M').dropna().unique()
-            months = sorted([str(m) for m in months], reverse=True)
-            filter_month = st.selectbox("Filter by month", ["All"] + months, key="history_month")
+            fcol1, fcol2, fcol3, fcol4 = st.columns([3, 2, 2, 5])
+            with fcol1:
+                all_cards = ["All"] + list(cards.keys())
+                filter_card = st.selectbox("Card", all_cards, key="history_card")
+            with fcol2:
+                paid_filter = st.radio("Paid", ["All", "Paid only", "Unpaid only"], horizontal=True)
+            with fcol3:
+                months = df['date_dt'].dt.to_period('M').dropna().unique()
+                months = sorted([str(m) for m in months], reverse=True)
+                filter_month = st.selectbox("Month", ["All"] + months, key="history_month")
+            with fcol4:
+                st.markdown(
+                    f"""
+                    <div class="totals-box">
+                      <div class="totals-card total">💳<br>${df['amount'].sum():.2f}</div>
+                      <div class="totals-card cash">💰<br>${df['cashback'].sum():.2f}</div>
+                      <div class="totals-card net">🧾<br>${df['net'].sum():.2f}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
             # --- FILTER DATA ---
             filtered = df.copy()
@@ -355,8 +378,6 @@ elif tab == "History":
                         st.markdown("</div>", unsafe_allow_html=True)
             else:
                 st.info("No purchases match your filters.")
-
-
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
