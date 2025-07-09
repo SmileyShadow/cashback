@@ -177,6 +177,9 @@ if tab == "Add Purchase":
 # ---- 2. History Tab ----
 elif tab == "History":
     st.header("📜 Purchase History")
+    if "just_paid" not in st.session_state:
+        st.session_state.just_paid = None
+
     if not purchases:
         st.info("No purchases yet.")
     else:
@@ -262,6 +265,17 @@ elif tab == "History":
                       </div>
                     </div>
                     """, unsafe_allow_html=True)
+
+            # --- PAY ALL FILTERED BUTTON ---
+            to_pay = filtered[filtered['paid'] == False]
+            if not to_pay.empty:
+                if st.button(f"Pay All Filtered ({len(to_pay)} purchases)", type="primary"):
+                    for idx in to_pay.index:
+                        purchases[idx]["paid"] = True
+                    save_purchases(purchases)
+                    st.session_state.just_paid = to_pay.copy()
+                    st.success(f"Marked {len(to_pay)} purchases as paid!")
+                    st.rerun()
 
             # --- FLEX ROW TABLE STYLES ---
             st.markdown("""
@@ -402,6 +416,35 @@ elif tab == "History":
                         st.markdown("</div>", unsafe_allow_html=True)
             else:
                 st.info("No purchases match your filters.")
+
+            # --- EXPORT / PRINT RECEIPT FOR JUST PAID ---
+            if st.session_state.get("just_paid") is not None:
+                just_paid = st.session_state["just_paid"]
+                if not just_paid.empty:
+                    st.subheader("🧾 Receipt for Paid Purchases")
+
+                    # Export CSV
+                    csv = just_paid.to_csv(index=False).encode('utf-8')
+                    st.download_button("⬇️ Download Receipt as CSV", data=csv, file_name='paid_receipt.csv', mime='text/csv')
+
+                    # Show printable receipt
+                    receipt_html = just_paid.to_html(index=False)
+                    st.markdown("#### Print Receipt")
+                    st.markdown(
+                        f"""
+                        <div style="background:#f8fafb;padding:1em 1.3em;border-radius:1em;margin:1em 0;">
+                        {receipt_html}
+                        </div>
+                        <button onclick="window.print()" style="font-size:1.1em;padding:0.5em 1.2em;border-radius:0.5em;background:#1e90ff;color:white;border:none;margin:1em 0;">🖨️ Print</button>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    # Optionally, clear after print
+                    if st.button("❌ Hide Receipt"):
+                        st.session_state.just_paid = None
+
+        else:
+            st.info("No purchases found.")
 
 
 # ---- 3. Cards Tab ----
