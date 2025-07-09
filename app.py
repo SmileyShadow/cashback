@@ -8,6 +8,8 @@ from fpdf import FPDF
 import tempfile
 import os
 import requests
+import hashlib
+import uuid
 
 # --- Category label mapping for PDF receipts (emojis become English text) ---
 PDF_CATEGORY_LABELS = {
@@ -21,15 +23,27 @@ PDF_CATEGORY_LABELS = {
     # Add more as needed!
 }
 
-# --- Streamlit-safe font loader for PDF ---
+# --- Robust, safe, atomic font loader for Streamlit/FPDF ---
 def get_dejavu_font_path():
     font_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
+    salt = str(uuid.uuid4()) + str(os.getpid())
     temp_dir = tempfile.gettempdir()
-    font_path = os.path.join(temp_dir, "dejavusans_streamlit.ttf")
+    font_basename = "dejavusans_streamlit_" + hashlib.sha1(salt.encode()).hexdigest()[:10] + ".ttf"
+    font_path = os.path.join(temp_dir, font_basename)
+    # Download atomically if not exists or corrupted
     if not os.path.exists(font_path) or os.path.getsize(font_path) < 100_000:
-        r = requests.get(font_url, timeout=10)
-        with open(font_path, "wb") as f:
-            f.write(r.content)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp:
+            r = requests.get(font_url, timeout=10)
+            tmp.write(r.content)
+            tmp.flush()
+            # Validate file: if not valid TTF, delete
+            try:
+                from fontTools.ttLib import TTFont
+                TTFont(tmp.name)  # will raise if not valid font
+                os.rename(tmp.name, font_path)
+            except Exception:
+                os.remove(tmp.name)
+                raise RuntimeError("Could not download a valid TTF font for PDF export. Try again.")
     return font_path
 
 # --- PDF Receipt Generation ---
