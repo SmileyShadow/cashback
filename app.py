@@ -8,20 +8,6 @@ from fpdf import FPDF
 import tempfile
 import os
 
-# ---- Emoji-to-text mapping for categories in PDF ----
-PDF_CATEGORY_LABELS = {
-    "🍔": "Food",
-    "🧺": "Groceries",
-    "💻": "Online",
-    "Other": "Other",
-    "⛽": "Fuel",
-    "⚕️": "Pharmacy",
-    "💵": "Cash",
-    # Add more as needed!
-}
-def category_to_label(cat):
-    return PDF_CATEGORY_LABELS.get(cat, cat)
-
 def generate_pdf_receipt(df, logo_url=None):
     import shutil
 
@@ -46,7 +32,6 @@ def generate_pdf_receipt(df, logo_url=None):
             self.set_text_color(130,130,130)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
-    # --- Download font reliably, check for valid font file ---
     FONT_PATH = "DejaVuSans.ttf"
     FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
 
@@ -57,12 +42,11 @@ def generate_pdf_receipt(df, logo_url=None):
             with open(FONT_PATH, "wb") as f:
                 f.write(r.content)
         else:
-            # Fallback to a backup font location (eg. Google Fonts)
             backup_url = "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/fonts/ttf/JetBrainsMono-Regular.ttf"
             r2 = requests.get(backup_url, timeout=10)
             with open(FONT_PATH, "wb") as f:
                 f.write(r2.content)
-    
+
     pdf = PDF()
     pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
     pdf.add_font('DejaVu', 'B', FONT_PATH, uni=True)
@@ -71,13 +55,11 @@ def generate_pdf_receipt(df, logo_url=None):
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("DejaVu", size=11)
 
-    # Colors
     header_bg = (40, 116, 207)
     header_fg = (255,255,255)
     row_alt_bg = (240,244,251)
     row_normal_bg = (255,255,255)
 
-    # Table header
     col_names = ["Date", "Card", "Category", "Amount", "Cashback", "Net"]
     col_widths = [32, 26, 30, 28, 26, 28]
     pdf.set_fill_color(*header_bg)
@@ -89,14 +71,12 @@ def generate_pdf_receipt(df, logo_url=None):
     pdf.set_font("DejaVu", "", 10)
     pdf.set_text_color(60,60,60)
 
-    # Table rows
     for j, (_, row) in enumerate(df.iterrows()):
         fill = row_alt_bg if j%2==0 else row_normal_bg
         pdf.set_fill_color(*fill)
         pdf.cell(col_widths[0], 8, str(row['date_only']), border=1, align='C', fill=True)
         pdf.cell(col_widths[1], 8, str(row['card']), border=1, align='C', fill=True)
-        # <-- Emoji-to-text mapping here!
-        pdf.cell(col_widths[2], 8, category_to_label(row['category']), border=1, align='C', fill=True)
+        pdf.cell(col_widths[2], 8, str(row['category']), border=1, align='C', fill=True)
         pdf.cell(col_widths[3], 8, f"${row['amount']:.2f}", border=1, align='C', fill=True)
         pdf.cell(col_widths[4], 8, f"${row['cashback']:.2f}", border=1, align='C', fill=True)
         pdf.cell(col_widths[5], 8, f"${row['net']:.2f}", border=1, align='C', fill=True)
@@ -223,7 +203,6 @@ def tabs_nav():
     tabs = {
         "Add Purchase": "🟢 Add Purchase",
         "History": "📜 History",
-        "Receipts": "🧾 Receipts",
         "Cards": "💳 Cards",
     }
     st.markdown("""
@@ -242,7 +221,6 @@ def tabs_nav():
 tab = tabs_nav()
 cards = load_cards()
 purchases = load_purchases()
-
 
 # ---- 1. Add Purchase Tab ----
 if tab == "Add Purchase":
@@ -289,50 +267,8 @@ if tab == "Add Purchase":
             st.toast("Purchase added successfully!", icon="✅")
             st.session_state.add_success = False
 
-# ---- 2 Code func ----
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-
-# Setup Google Drive API and Receipts worksheet (add this at the top or after get_gsheets)
-credentials = Credentials.from_service_account_info(
-    json.loads(st.secrets["GCP_SERVICE_ACCOUNT"]), scopes=SCOPE)
-drive_service = build('drive', 'v3', credentials=credentials)
-FOLDER_ID = "1riOVJX9fGQcP60DowdoiV4yDSDf83aio"  # Your Drive receipts folder
-
-sh = gspread.authorize(credentials).open("cashback_app")
-try:
-    receipts_ws = sh.worksheet("receipts")
-except gspread.WorksheetNotFound:
-    receipts_ws = sh.add_worksheet(title="receipts", rows="1000", cols="5")
-    receipts_ws.append_row(["receipt_id", "date", "total_amount", "file_id", "file_url"])
-
-# -- Helper functions --
-def upload_pdf_to_drive(pdf_path, filename, parent_folder_id):
-    file_metadata = {
-        "name": filename,
-        "parents": [parent_folder_id],
-        "mimeType": "application/pdf"
-    }
-    media = MediaFileUpload(pdf_path, mimetype="application/pdf")
-    file = drive_service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id'
-    ).execute()
-    file_id = file.get('id')
-    # Make file public
-    drive_service.permissions().create(
-        fileId=file_id,
-        body={"type": "anyone", "role": "reader"},
-    ).execute()
-    file_url = f"https://drive.google.com/uc?id={file_id}&export=download"
-    return file_id, file_url
-
-def log_receipt_to_sheet(receipt_id, date, total_amount, file_id, file_url):
-    receipts_ws.append_row([receipt_id, date, total_amount, file_id, file_url])
-
 # ---- 2. History Tab ----
-if tab == "History":
+elif tab == "History":
     st.header("📜 Purchase History")
     if "just_paid" not in st.session_state:
         st.session_state.just_paid = None
@@ -423,7 +359,7 @@ if tab == "History":
                     </div>
                     """, unsafe_allow_html=True)
 
-            # --- PAY ALL FILTERED BUTTON & RECEIPT GENERATION ---
+            # --- PAY ALL FILTERED BUTTON ---
             to_pay = filtered[filtered['paid'] == False]
             if not to_pay.empty:
                 if st.button(f"Pay All Filtered ({len(to_pay)} purchases)", type="primary"):
@@ -431,26 +367,6 @@ if tab == "History":
                         purchases[idx]["paid"] = True
                     save_purchases(purchases)
                     st.session_state.just_paid = to_pay.copy()
-                    # -- Generate and log receipt immediately after paying --
-                    just_paid = st.session_state["just_paid"]
-                    if not just_paid.empty:
-                        st.subheader("🧾 Receipt for Paid Purchases")
-                        logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
-                        pdf_path = generate_pdf_receipt(just_paid, logo_url=logo_url)
-                        # Next receipt id
-                        existing_receipts = receipts_ws.col_values(1)
-                        next_receipt_id = len(existing_receipts) if existing_receipts else 1
-                        date_now = datetime.now().strftime("%Y-%m-%d %H:%M")
-                        total_amount = just_paid['amount'].sum()
-                        file_id, file_url = upload_pdf_to_drive(
-                            pdf_path, filename=f"receipt_{next_receipt_id}.pdf", parent_folder_id=FOLDER_ID
-                        )
-                        log_receipt_to_sheet(next_receipt_id, date_now, total_amount, file_id, file_url)
-                        with open(pdf_path, "rb") as pdf_file:
-                            st.download_button("⬇️ Download Receipt as PDF", pdf_file.read(), file_name=f"paid_receipt_{next_receipt_id}.pdf", mime="application/pdf")
-                        st.info(f"Also saved to Google Drive. [Receipt link]({file_url})", icon="📂")
-                        if st.button("❌ Hide Receipt"):
-                            st.session_state.just_paid = None
                     st.success(f"Marked {len(to_pay)} purchases as paid!")
                     st.rerun()
 
@@ -594,11 +510,23 @@ if tab == "History":
             else:
                 st.info("No purchases match your filters.")
 
+            # --- EXPORT RECEIPT AS PDF FOR JUST PAID ---
+            logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
+            if st.session_state.get("just_paid") is not None:
+                just_paid = st.session_state["just_paid"]
+                if not just_paid.empty:
+                    st.subheader("🧾 Receipt for Paid Purchases")
+                    pdf_path = generate_pdf_receipt(just_paid, logo_url=logo_url)
+                    with open(pdf_path, "rb") as pdf_file:
+                        st.download_button("⬇️ Download Receipt as PDF", pdf_file.read(), file_name="paid_receipt.pdf", mime="application/pdf")
+                    if st.button("❌ Hide Receipt"):
+                        st.session_state.just_paid = None
+
         else:
             st.info("No purchases found.")
 
 # ---- 3. Cards Tab ----
-if tab == "Cards":
+elif tab == "Cards":
     st.header("💳 Cards")
     with st.expander("➕ Create Card"):
         card_name = st.text_input("Card Name", key="card_name")
@@ -672,36 +600,5 @@ if tab == "Cards":
                             st.rerun()
     else:
         st.info("No cards added yet.")
-
-
-#Reciepts TAb 
-
-if tab == "Receipts":
-    st.header("🧾 Receipts History")
-    try:
-        receipt_records = receipts_ws.get_all_records()
-    except Exception as e:
-        st.error("Couldn't load receipts. Try again later.")
-        receipt_records = []
-    if not receipt_records:
-        st.info("No receipts saved yet.")
-    else:
-        df_r = pd.DataFrame(receipt_records)
-        df_r = df_r.rename(columns={
-            df_r.columns[0]: "Receipt #",
-            df_r.columns[1]: "Date",
-            df_r.columns[2]: "Total",
-            df_r.columns[3]: "PDF File ID",
-            df_r.columns[4]: "PDF Link"
-        })
-        st.dataframe(df_r[["Receipt #", "Date", "Total"]], use_container_width=True)
-        for i, row in df_r.iterrows():
-            st.markdown(f"""
-                <div style="margin-bottom:1em;">
-                    <b>Receipt #{row['Receipt #']}</b> — {row['Date']} — Total: ${row['Total']:.2f}  
-                    <a href="{row['PDF Link']}" target="_blank">🔗 View/Download PDF</a>
-                </div>
-            """, unsafe_allow_html=True)
-
 
 st.caption("by Mohammed Salman! 🚀")
