@@ -9,6 +9,8 @@ import tempfile
 import os
 
 def generate_pdf_receipt(df, logo_url=None):
+    import shutil
+
     class PDF(FPDF):
         def header(self):
             if logo_url:
@@ -30,15 +32,23 @@ def generate_pdf_receipt(df, logo_url=None):
             self.set_text_color(130,130,130)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
-    # ---- Register Unicode font BEFORE any pdf = PDF() or add_page() ----
+    # --- Download font reliably, check for valid font file ---
     FONT_PATH = "DejaVuSans.ttf"
-    if not os.path.exists(FONT_PATH):
-        import requests
-        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
-        r = requests.get(url)
-        with open(FONT_PATH, "wb") as f:
-            f.write(r.content)
+    FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
 
+    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 100_000:
+        import requests
+        r = requests.get(FONT_URL, timeout=10)
+        if r.ok and r.headers.get("Content-Type","").startswith("font/"):
+            with open(FONT_PATH, "wb") as f:
+                f.write(r.content)
+        else:
+            # Fallback to a backup font location (eg. Google Fonts)
+            backup_url = "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/fonts/ttf/JetBrainsMono-Regular.ttf"
+            r2 = requests.get(backup_url, timeout=10)
+            with open(FONT_PATH, "wb") as f:
+                f.write(r2.content)
+    
     pdf = PDF()
     pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
     pdf.add_font('DejaVu', 'B', FONT_PATH, uni=True)
@@ -46,6 +56,10 @@ def generate_pdf_receipt(df, logo_url=None):
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("DejaVu", size=11)
+
+    # ... [rest of your code as before]
+    # Copy your receipt table, totals, etc. below this line
+
 
     # Colors
     header_bg = (40, 116, 207)
