@@ -293,81 +293,79 @@ elif tab == "History":
             """, unsafe_allow_html=True)
 
             # --- HEADLINE ---
-            st.markdown("""
-                <div class='cb-card-row' style='background:#f4f8ff;font-weight:700;color:#2851a3;'>
-                    <div class='cb-col cb-date'>Date</div>
-                    <div class='cb-col cb-card'>Card</div>
-                    <div class='cb-col cb-cat'>Category</div>
-                    <div class='cb-col cb-amt'>Amount</div>
-                    <div class='cb-col cb-cash'>Cashback</div>
-                    <div class='cb-col cb-net'>Net</div>
-                    <div class='cb-col cb-paid'>Paid</div>
-                    <div class='cb-col cb-edit'>Edit</div>
-                </div>
-            """, unsafe_allow_html=True)
+# --- HEADER ---
+st.markdown("""
+<div class="flex-table-row" style="background:#eef1f8;font-weight:700;color:#2851a3;">
+  <div class="flex-table-cell">Date</div>
+  <div class="flex-table-cell">Card</div>
+  <div class="flex-table-cell">Category</div>
+  <div class="flex-table-cell amount">Amount</div>
+  <div class="flex-table-cell cashback">Cashback</div>
+  <div class="flex-table-cell net">Net</div>
+  <div class="flex-table-cell paid">Paid</div>
+  <div class="flex-table-cell edit">Edit</div>
+</div>
+""", unsafe_allow_html=True)
 
-            # --- PURCHASE ROWS ---
-            if not filtered.empty:
-                for i, row in filtered.iterrows():
-                    idx = row.name
-                    # For mobile: one card per row, edit button as streamlit
-                    cols = st.columns([4, 2, 2, 2, 2, 2, 1, 1])
-                    with cols[0]:
-                        st.markdown(f"<div class='cb-card-row'><div class='cb-col cb-date'>{row['date_only']}</div>", unsafe_allow_html=True)
-                    with cols[1]:
-                        st.markdown(f"<div class='cb-col cb-card'>{row['card']}</div>", unsafe_allow_html=True)
-                    with cols[2]:
-                        st.markdown(f"<div class='cb-col cb-cat'>{row['category']}</div>", unsafe_allow_html=True)
-                    with cols[3]:
-                        st.markdown(f"<div class='cb-col cb-amt'>${row['amount']:.2f}</div>", unsafe_allow_html=True)
-                    with cols[4]:
-                        st.markdown(f"<div class='cb-col cb-cash'>${row['cashback']:.2f}</div>", unsafe_allow_html=True)
-                    with cols[5]:
-                        st.markdown(f"<div class='cb-col cb-net'>${row['net']:.2f}</div>", unsafe_allow_html=True)
-                    with cols[6]:
-                        st.markdown(f"<div class='cb-col cb-paid'>{row['paid_str']}</div>", unsafe_allow_html=True)
-                    with cols[7]:
-                        if st.button("✏️", key=f"edit_{idx}"):
-                            st.session_state.edit_row = idx
-                    st.markdown("</div>", unsafe_allow_html=True)  # End of cb-card-row
+# --- PURCHASE ROWS ---
+if not filtered.empty:
+    for i, row in filtered.iterrows():
+        idx = row.name
+        st.markdown(
+            f"""
+            <div class="flex-table-row">
+              <div class="flex-table-cell">{row['date_only']}</div>
+              <div class="flex-table-cell">{row['card']}</div>
+              <div class="flex-table-cell">{row['category']}</div>
+              <div class="flex-table-cell amount">${row['amount']:.2f}</div>
+              <div class="flex-table-cell cashback">${row['cashback']:.2f}</div>
+              <div class="flex-table-cell net">${row['net']:.2f}</div>
+              <div class="flex-table-cell paid">{row['paid_str']}</div>
+              <div class="flex-table-cell edit">
+                {"<b>Editing…</b>" if "edit_row" in st.session_state and st.session_state.edit_row == idx else ""}
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        # Edit button is only shown if not editing this row
+        if "edit_row" not in st.session_state or st.session_state.edit_row != idx:
+            if st.button("✏️", key=f"edit_{idx}"):
+                st.session_state.edit_row = idx
 
-                    # --- EDIT FORM just under this card ---
-                    if "edit_row" in st.session_state and st.session_state.edit_row == idx:
-                        edit_row = df.loc[idx]
-                        st.markdown(
-                            "<div style='margin-bottom:0.3em;margin-top:-0.8em;'></div>",  # Visual spacing
-                            unsafe_allow_html=True
-                        )
-                        with st.container():
-                            st.markdown(
-                                "<div style='background:#f9fcff;border-radius:1.1em;padding:1.2em 1.1em 0.7em 1.1em;margin-bottom:1em;box-shadow:0 2px 8px #e3eefa;'>",
-                                unsafe_allow_html=True
-                            )
-                            st.markdown("#### Edit Purchase", unsafe_allow_html=True)
-                            colE1, colE2 = st.columns([3, 1])
-                            with colE1:
-                                new_amount = st.number_input("Amount", value=float(edit_row["amount"]), min_value=0.0, step=0.01, key=f"edit_amount_{idx}")
-                                new_paid = st.checkbox("Paid", value=edit_row["paid"], key=f"edit_paid_{idx}")
-                            with colE2:
-                                if st.button("Save", key=f"save_edit_{idx}"):
-                                    purchases[idx]["amount"] = new_amount
-                                    purchases[idx]["paid"] = new_paid
-                                    save_purchases(purchases)
-                                    st.success("Purchase updated!")
-                                    st.session_state.edit_row = None
-                                    st.rerun()
-                                if st.button("Delete", key=f"delete_edit_{idx}"):
-                                    purchases.pop(idx)
-                                    save_purchases(purchases)
-                                    st.success("Purchase deleted!")
-                                    st.session_state.edit_row = None
-                                    st.rerun()
-                                if st.button("Cancel", key=f"cancel_edit_{idx}"):
-                                    st.session_state.edit_row = None
-                                    st.rerun()
-                            st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.info("No purchases match your filters.")
+        # --- EDIT FORM: immediately below the row being edited ---
+        if "edit_row" in st.session_state and st.session_state.edit_row == idx:
+            edit_row = df.loc[idx]
+            st.markdown(
+                "<div style='background:#f9fcff;border-radius:1em;padding:1.2em 1em 0.7em 1em;margin-bottom:1.1em;margin-top:-0.7em;box-shadow:0 2px 8px #e3eefa;'>",
+                unsafe_allow_html=True
+            )
+            st.write("**Edit Purchase:**")
+            colE1, colE2 = st.columns([3, 1])
+            with colE1:
+                new_amount = st.number_input("Amount", value=float(edit_row["amount"]), min_value=0.0, step=0.01, key=f"edit_amount_{idx}")
+                new_paid = st.checkbox("Paid", value=edit_row["paid"], key=f"edit_paid_{idx}")
+            with colE2:
+                if st.button("Save", key=f"save_edit_{idx}"):
+                    purchases[idx]["amount"] = new_amount
+                    purchases[idx]["paid"] = new_paid
+                    save_purchases(purchases)
+                    st.success("Purchase updated!")
+                    st.session_state.edit_row = None
+                    st.rerun()
+                if st.button("Delete", key=f"delete_edit_{idx}"):
+                    purchases.pop(idx)
+                    save_purchases(purchases)
+                    st.success("Purchase deleted!")
+                    st.session_state.edit_row = None
+                    st.rerun()
+                if st.button("Cancel", key=f"cancel_edit_{idx}"):
+                    st.session_state.edit_row = None
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+else:
+    st.info("No purchases match your filters.")
+
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
