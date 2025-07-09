@@ -7,68 +7,15 @@ from datetime import datetime
 from fpdf import FPDF
 import tempfile
 import os
-import requests
 
-# --- Category label mapping for PDF receipts (emojis become English text) ---
-PDF_CATEGORY_LABELS = {
-    "🍔": "Food",
-    "🧺": "Groceries",
-    "💻": "Online",
-    "Other": "Other",
-    "⛽": "Fuel",
-    "⚕️": "Pharmacy",
-    "💵": "Cash",
-    # Add more as needed!
-}
-
-# --- Robust Font Loader for PDF ---
-FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
-FONT_MIN_SIZE = 350 * 1024  # 350KB is normal for DejaVuSans.ttf
-
-def get_valid_font_path():
-    import requests
-    from fontTools.ttLib import TTFont
-    tempdir = tempfile.gettempdir()
-    # Each session gets its own font file to avoid concurrency bugs
-    session_id = st.session_state.get("font_session", None)
-    if not session_id:
-        session_id = str(datetime.now().timestamp()).replace(".", "")
-        st.session_state["font_session"] = session_id
-    font_path = os.path.join(tempdir, f"dejavu_{session_id}.ttf")
-    tries = 3
-    while tries > 0:
-        # Remove if corrupt
-        if os.path.exists(font_path):
-            try:
-                if os.path.getsize(font_path) > FONT_MIN_SIZE:
-                    TTFont(font_path)
-                    return font_path
-                else:
-                    os.remove(font_path)
-            except Exception:
-                os.remove(font_path)
-        # Download fresh
-        r = requests.get(FONT_URL, timeout=15)
-        with open(font_path, "wb") as f:
-            f.write(r.content)
-        tries -= 1
-    # Final check and fail if still bad
-    if not os.path.exists(font_path) or os.path.getsize(font_path) < FONT_MIN_SIZE:
-        raise RuntimeError("Could not download a valid DejaVuSans.ttf font file for PDF receipts.")
-    try:
-        TTFont(font_path)
-        return font_path
-    except Exception:
-        raise RuntimeError("Downloaded font is corrupt, aborting PDF export.")
-
-# --- PDF Receipt Generation ---
-def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
-    font_path = get_valid_font_path()
+def generate_pdf_receipt(df, logo_url=None):
+    import shutil
 
     class PDF(FPDF):
         def header(self):
             if logo_url:
                 try:
+                    import requests
                     response = requests.get(logo_url)
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_logo:
                         tmp_logo.write(response.content)
@@ -78,28 +25,43 @@ def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
                     pass
             self.set_font('DejaVu', 'B', 16)
             self.cell(0, 10, 'Purchase Receipt', ln=True, align='C')
-            if receipt_id:
-                self.set_font('DejaVu', '', 10)
-                self.set_text_color(70, 70, 70)
-                self.cell(0, 7, f"Receipt #: {receipt_id}", ln=True, align='C')
-            if paid_at:
-                self.cell(0, 6, f"Paid at: {paid_at}", ln=True, align='C')
-            self.ln(4)
+            self.ln(6)
         def footer(self):
             self.set_y(-12)
             self.set_font('DejaVu', 'I', 8)
             self.set_text_color(130,130,130)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
+    # --- Download font reliably, check for valid font file ---
+    FONT_PATH = "DejaVuSans.ttf"
+    FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
+
+    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 100_000:
+        import requests
+        r = requests.get(FONT_URL, timeout=10)
+        if r.ok and r.headers.get("Content-Type","").startswith("font/"):
+            with open(FONT_PATH, "wb") as f:
+                f.write(r.content)
+        else:
+            # Fallback to a backup font location (eg. Google Fonts)
+            backup_url = "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/fonts/ttf/JetBrainsMono-Regular.ttf"
+            r2 = requests.get(backup_url, timeout=10)
+            with open(FONT_PATH, "wb") as f:
+                f.write(r2.content)
+    
     pdf = PDF()
-    pdf.add_font('DejaVu', '', font_path, uni=True)
-    pdf.add_font('DejaVu', 'B', font_path, uni=True)
-    pdf.add_font('DejaVu', 'I', font_path, uni=True)
+    pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
+    pdf.add_font('DejaVu', 'B', FONT_PATH, uni=True)
+    pdf.add_font('DejaVu', 'I', FONT_PATH, uni=True)
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("DejaVu", size=11)
 
-    # Table styling
+    # ... [rest of your code as before]
+    # Copy your receipt table, totals, etc. below this line
+
+
+    # Colors
     header_bg = (40, 116, 207)
     header_fg = (255,255,255)
     row_alt_bg = (240,244,251)
@@ -121,11 +83,9 @@ def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
     for j, (_, row) in enumerate(df.iterrows()):
         fill = row_alt_bg if j%2==0 else row_normal_bg
         pdf.set_fill_color(*fill)
-        cat_val = str(row['category'])
-        cat_label = PDF_CATEGORY_LABELS.get(cat_val, cat_val)
         pdf.cell(col_widths[0], 8, str(row['date_only']), border=1, align='C', fill=True)
         pdf.cell(col_widths[1], 8, str(row['card']), border=1, align='C', fill=True)
-        pdf.cell(col_widths[2], 8, cat_label, border=1, align='C', fill=True)
+        pdf.cell(col_widths[2], 8, str(row['category']), border=1, align='C', fill=True)
         pdf.cell(col_widths[3], 8, f"${row['amount']:.2f}", border=1, align='C', fill=True)
         pdf.cell(col_widths[4], 8, f"${row['cashback']:.2f}", border=1, align='C', fill=True)
         pdf.cell(col_widths[5], 8, f"${row['net']:.2f}", border=1, align='C', fill=True)
@@ -177,14 +137,9 @@ def get_gsheets():
     sh = gc.open("cashback_app")
     cards_ws = sh.worksheet("cards")
     purchases_ws = sh.worksheet("purchases")
-    try:
-        receipts_ws = sh.worksheet("receipts")
-    except:
-        receipts_ws = sh.add_worksheet(title="receipts", rows=100, cols=4)
-        receipts_ws.append_row(["receipt_id", "paid_at", "data_json"])
-    return cards_ws, purchases_ws, receipts_ws, sh
+    return cards_ws, purchases_ws
 
-cards_ws, purchases_ws, receipts_ws, sh = get_gsheets()
+cards_ws, purchases_ws = get_gsheets()
 
 def load_cards():
     records = cards_ws.get_all_records()
@@ -236,18 +191,6 @@ def save_purchases(purchases):
     if sheet_len > len(values):
         purchases_ws.batch_clear([f"A{len(values)+1}:E{sheet_len}"])
 
-# -- Receipts history functions --
-def save_receipt_snapshot(just_paid_df):
-    receipt_id = datetime.now().strftime('%Y%m%d%H%M%S')
-    paid_at = datetime.now().strftime('%Y-%m-%d %H:%M')
-    data_json = just_paid_df.to_json(orient="records")
-    receipts_ws.append_row([receipt_id, paid_at, data_json])
-    return receipt_id, paid_at
-
-def load_receipts_history():
-    rows = receipts_ws.get_all_records()
-    return rows
-
 if "new_card_categories" not in st.session_state:
     st.session_state.new_card_categories = {}
 if "edit_purchase_index" not in st.session_state:
@@ -270,7 +213,6 @@ def tabs_nav():
         "Add Purchase": "🟢 Add Purchase",
         "History": "📜 History",
         "Cards": "💳 Cards",
-        "Receipts": "🧾 Receipts",    # <--- NEW TAB!
     }
     st.markdown("""
         <style>
@@ -278,6 +220,7 @@ def tabs_nav():
         </style>
         """, unsafe_allow_html=True)
     cols = st.columns(len(tabs))
+    selected = st.session_state.get("current_tab", "Add Purchase")
     for i, (tab, label) in enumerate(tabs.items()):
         if cols[i].button(label, use_container_width=True):
             st.session_state.current_tab = tab
@@ -666,25 +609,5 @@ elif tab == "Cards":
                             st.rerun()
     else:
         st.info("No cards added yet.")
-# ---- 4. Receipts Tab ----
-if tab == "Receipts":
-    st.header("🧾 Receipts History")
-    history = load_receipts_history()
-    if not history:
-        st.info("No receipts yet.")
-    else:
-        for row in reversed(history):
-            receipt_id = row['receipt_id']
-            paid_at = row['paid_at']
-            data_json = row['data_json']
-            df_receipt = pd.DataFrame(json.loads(data_json))
-            st.markdown(f"**Receipt #{receipt_id}** <span style='color:#888;font-size:0.93em;'>🕑 {paid_at}</span>", unsafe_allow_html=True)
-            st.write(f"**Total:** ${df_receipt['amount'].sum():.2f}")
-            logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
-            pdf_path = generate_pdf_receipt(df_receipt, logo_url=logo_url, receipt_id=receipt_id, paid_at=paid_at)
-            with open(pdf_path, "rb") as pdf_file:
-                st.download_button("⬇️ Download PDF", pdf_file.read(), file_name=f"receipt_{receipt_id}.pdf", mime="application/pdf")
-            with st.expander("View details"):
-                st.dataframe(df_receipt[["date_only", "card", "category", "amount", "cashback", "net"]])
 
 st.caption("by Mohammed Salman! 🚀")
