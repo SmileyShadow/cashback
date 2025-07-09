@@ -216,67 +216,75 @@ elif tab == "History":
             if filter_month != "All":
                 filtered = filtered[filtered['date_dt'].dt.to_period('M').astype(str) == filter_month]
 
-            # --- FILTERED TOTALS (TOP BAR) ---
+            # --- GLASSY TOTALS BAR (filtered only) ---
             st.markdown(
                 f"""
-                <div style='display:flex; gap:0.45em; margin-bottom:0.67em; justify-content:center; flex-wrap:wrap;'>
-                  <div style='background:#2764ae;color:white;padding:0.8em 0.9em;border-radius:1.2em;box-shadow:0 2px 7px #2764ae22;min-width:90px;text-align:center;'>
-                    <span style='font-size:.99em;'>💳 Total</span><br>
-                    <span style='font-size:1.09em;font-weight:bold;'>${filtered['amount'].sum():.2f}</span>
+                <div style='display:flex;gap:0.55em;justify-content:center;flex-wrap:wrap;margin-bottom:0.74em;'>
+                  <div style='background:rgba(34,84,170,0.21);backdrop-filter:blur(5px);color:#22488a;padding:0.77em 1.05em 0.57em 1.05em;border-radius:1.1em;min-width:86px;text-align:center;box-shadow:0 2px 10px #24418a13;'>
+                    <span style='font-size:0.96em;'>💳</span><br>
+                    <span style='font-size:0.91em;'>Total</span><br>
+                    <span style='font-size:1.13em;font-weight:600;letter-spacing:0.5px;'>${filtered['amount'].sum():.2f}</span>
                   </div>
-                  <div style='background:#289b59;color:white;padding:0.8em 0.9em;border-radius:1.2em;box-shadow:0 2px 7px #289b5920;min-width:90px;text-align:center;'>
-                    <span style='font-size:.99em;'>💰 Cashback</span><br>
-                    <span style='font-size:1.09em;font-weight:bold;'>${filtered['cashback'].sum():.2f}</span>
+                  <div style='background:rgba(46,170,110,0.17);backdrop-filter:blur(5px);color:#218555;padding:0.77em 1.05em 0.57em 1.05em;border-radius:1.1em;min-width:86px;text-align:center;box-shadow:0 2px 10px #21855513;'>
+                    <span style='font-size:0.96em;'>🪙</span><br>
+                    <span style='font-size:0.91em;'>Cashback</span><br>
+                    <span style='font-size:1.13em;font-weight:600;letter-spacing:0.5px;'>${filtered['cashback'].sum():.2f}</span>
                   </div>
-                  <div style='background:#e2b201;color:#222;padding:0.8em 0.9em;border-radius:1.2em;box-shadow:0 2px 7px #e2b20120;min-width:90px;text-align:center;'>
-                    <span style='font-size:.99em;'>🧾 Net</span><br>
-                    <span style='font-size:1.09em;font-weight:bold;'>${filtered['net'].sum():.2f}</span>
+                  <div style='background:rgba(200,167,24,0.17);backdrop-filter:blur(5px);color:#ad891c;padding:0.77em 1.05em 0.57em 1.05em;border-radius:1.1em;min-width:86px;text-align:center;box-shadow:0 2px 10px #ad891c13;'>
+                    <span style='font-size:0.96em;'>🧾</span><br>
+                    <span style='font-size:0.91em;'>Net</span><br>
+                    <span style='font-size:1.13em;font-weight:600;letter-spacing:0.5px;'>${filtered['net'].sum():.2f}</span>
                   </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True
+            )
 
-            # --- UNPAID TOTALS (IF ANY) ---
+            # --- UNPAID TOTALS GLASS (if any) ---
             unpaid = filtered[filtered['paid'] == False]
             if not unpaid.empty:
                 st.markdown(
                     f"""
-                    <div style='display:flex; gap:0.45em; margin-bottom:0.7em; justify-content:center; flex-wrap:wrap;'>
-                      <div style='background:#cb3b37;color:white;padding:0.7em 0.8em;border-radius:1.1em;box-shadow:0 2px 5px #cb3b3720;min-width:90px;text-align:center;'>
-                        <span style='font-size:.93em;'>🔴 Unpaid</span><br>
-                        <span style='font-size:1.05em;font-weight:bold;'>${unpaid['amount'].sum():.2f}</span>
+                    <div style='display:flex;gap:0.55em;justify-content:center;flex-wrap:wrap;margin-bottom:0.67em;'>
+                      <div style='background:rgba(210,70,70,0.18);backdrop-filter:blur(5px);color:#9b2222;padding:0.74em 1em 0.54em 1em;border-radius:1.1em;min-width:86px;text-align:center;box-shadow:0 2px 9px #ba343420;'>
+                        <span style='font-size:0.92em;'>🔴</span><br>
+                        <span style='font-size:0.88em;'>Unpaid</span><br>
+                        <span style='font-size:1.08em;font-weight:600;letter-spacing:0.5px;'>${unpaid['amount'].sum():.2f}</span>
                       </div>
-                      <div style='background:#e9ab18;color:#222;padding:0.7em 0.8em;border-radius:1.1em;box-shadow:0 2px 5px #e9ab1820;min-width:90px;text-align:center;'>
-                        <span style='font-size:.93em;'>Cashback</span><br>
-                        <span style='font-size:1.05em;font-weight:bold;'>${unpaid['cashback'].sum():.2f}</span>
+                      <div style='background:rgba(240,170,50,0.17);backdrop-filter:blur(5px);color:#c59b28;padding:0.74em 1em 0.54em 1em;border-radius:1.1em;min-width:86px;text-align:center;box-shadow:0 2px 9px #c59b2818;'>
+                        <span style='font-size:0.92em;'>🪙</span><br>
+                        <span style='font-size:0.88em;'>Cashback</span><br>
+                        <span style='font-size:1.08em;font-weight:600;letter-spacing:0.5px;'>${unpaid['cashback'].sum():.2f}</span>
                       </div>
-                      <div style='background:#34495e;color:white;padding:0.7em 0.8em;border-radius:1.1em;box-shadow:0 2px 5px #34495e20;min-width:90px;text-align:center;'>
-                        <span style='font-size:.93em;'>Net</span><br>
-                        <span style='font-size:1.05em;font-weight:bold;'>${unpaid['net'].sum():.2f}</span>
+                      <div style='background:rgba(60,68,110,0.18);backdrop-filter:blur(5px);color:#233267;padding:0.74em 1em 0.54em 1em;border-radius:1.1em;min-width:86px;text-align:center;box-shadow:0 2px 9px #2332671b;'>
+                        <span style='font-size:0.92em;'>🧾</span><br>
+                        <span style='font-size:0.88em;'>Net</span><br>
+                        <span style='font-size:1.08em;font-weight:600;letter-spacing:0.5px;'>${unpaid['net'].sum():.2f}</span>
                       </div>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True
+                )
 
             # --- FLEXBOX TABLE STYLE ---
             st.markdown("""
             <style>
             .flex-table-row {
                 display: flex;
-                background: #fff;
-                color: #222;
-                border-radius: 1.08em;
-                box-shadow: 0 2px 8px #e7e9f2;
-                margin-bottom: 0.43em;
+                background: rgba(255,255,255,0.96);
+                color: #232c40;
+                border-radius: 0.85em;
+                box-shadow: 0 2px 8px #dde0f2;
+                margin-bottom: 0.28em;
                 font-size: .97em;
                 font-weight: 500;
                 align-items: center;
-                padding: 0.17em 0.44em;
+                padding: 0.21em 0.36em;
                 overflow-x: auto;
-                min-width: 240px;
+                min-width: 180px;
                 max-width: 100vw;
             }
             .flex-table-cell {
-                flex: 1 0 54px;
-                padding: 0.18em 0.11em;
+                flex: 1 0 46px;
+                padding: 0.14em 0.12em;
                 text-align: left;
                 white-space: nowrap;
             }
@@ -284,26 +292,25 @@ elif tab == "History":
             .flex-table-cell.paid { text-align: center;}
             .flex-table-cell.edit { text-align: center;}
             .edit-btn {
-                background: #f0f6fd;
-                color: #2357ac;
+                background: transparent;
+                color: #f0a905;
                 border: none;
-                border-radius: 0.63em;
-                padding: 0.17em 0.6em;
-                font-size: 1em;
+                border-radius: 0.6em;
+                padding: 0.11em 0.4em;
+                font-size: 1.11em;
                 cursor: pointer;
-                font-weight: 600;
-                box-shadow: 0 1px 1px #dbe9fa99;
-                transition: background 0.15s;
+                font-weight: 700;
+                transition: color 0.17s;
             }
-            .edit-btn:hover { background: #dbefff; }
+            .edit-btn:hover { color: #222; }
             @media (max-width: 500px) {
-                .flex-table-row { font-size: .92em; min-width: 160px; padding:0.1em 0.03em;}
-                .flex-table-cell { flex: 1 0 36px; padding: 0.08em 0.04em;}
+                .flex-table-row { font-size: .89em; min-width: 120px; padding:0.05em 0.03em;}
+                .flex-table-cell { flex: 1 0 28px; padding: 0.05em 0.04em;}
             }
             </style>
             """, unsafe_allow_html=True)
 
-            # --- HEADER (dark blue accent, always on one line) ---
+            # --- HEADER (softer blue, more compact) ---
             st.markdown("""
             <div class="flex-table-row" style="background:#e9f2ff;font-weight:700;color:#2357ac;">
               <div class="flex-table-cell">Date</div>
@@ -330,10 +337,8 @@ elif tab == "History":
                           <div class="flex-table-cell amount">${row['amount']:.2f}</div>
                           <div class="flex-table-cell cashback">${row['cashback']:.2f}</div>
                           <div class="flex-table-cell net">${row['net']:.2f}</div>
-                          <div class="flex-table-cell paid">{row['paid_str']}</div>
-                          <div class="flex-table-cell edit">
-                            {('<b>Editing…</b>' if st.session_state.get('edit_row') == idx else '')}
-                          </div>
+                          <div class="flex-table-cell paid"><span style='font-size:1.23em;'>{row['paid_str']}</span></div>
+                          <div class="flex-table-cell edit">{('<b>Editing…</b>' if st.session_state.get('edit_row') == idx else '')}</div>
                         </div>
                         """,
                         unsafe_allow_html=True
