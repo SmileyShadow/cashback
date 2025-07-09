@@ -197,56 +197,13 @@ elif tab == "History":
             df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
             df['date_only'] = df['date_dt'].dt.strftime('%Y-%m-%d')
 
-            # --- FILTERS + TOTALS BAR ON ONE ROW (Responsive) ---
-            st.markdown("""
-                <style>
-                .totals-box {
-                    display: flex; gap: 0.6em; align-items: center;
-                    flex-wrap: wrap; justify-content: flex-end;
-                    min-width: 0;
-                }
-                .totals-card {
-                    background: #f9fcff;
-                    color: #2851a3;
-                    padding: 0.57em 0.8em 0.38em 0.8em;
-                    border-radius: 1.1em;
-                    font-size: 1.03em;
-                    font-weight: 600;
-                    min-width: 78px;
-                    margin-left: 0.12em;
-                    box-shadow: 0 1px 7px #e5eefa33;
-                    text-align: center;
-                    margin-bottom: 3px;
-                }
-                .totals-card.total  { background: #2498F7; color: #fff; }
-                .totals-card.cash   { background: #3DBB5B; color: #fff; }
-                .totals-card.net    { background: #FFB200; color: #fff; }
-                @media (max-width: 600px) {
-                    .totals-box { gap:0.4em; }
-                    .totals-card { padding:0.45em 0.65em 0.23em 0.65em; font-size:0.97em; border-radius:0.83em; min-width:61px; }
-                }
-                </style>
-            """, unsafe_allow_html=True)
-
-            fcol1, fcol2, fcol3, fcol4 = st.columns([3, 2, 2, 5])
-            with fcol1:
-                all_cards = ["All"] + list(cards.keys())
-                filter_card = st.selectbox("Card", all_cards, key="history_card")
-            with fcol2:
-                paid_filter = st.radio("Paid", ["All", "Paid only", "Unpaid only"], horizontal=True)
-            with fcol3:
-                months = df['date_dt'].dt.to_period('M').dropna().unique()
-                months = sorted([str(m) for m in months], reverse=True)
-                filter_month = st.selectbox("Month", ["All"] + months, key="history_month")
-            with fcol4:
-                st.markdown(
-                    f"""
-                    <div class="totals-box">
-                      <div class="totals-card total">💳<br>${df['amount'].sum():.2f}</div>
-                      <div class="totals-card cash">💰<br>${df['cashback'].sum():.2f}</div>
-                      <div class="totals-card net">🧾<br>${df['net'].sum():.2f}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+            # --- FILTERS (immediately after data prep) ---
+            all_cards = ["All"] + list(cards.keys())
+            filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
+            paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], horizontal=True)
+            months = df['date_dt'].dt.to_period('M').dropna().unique()
+            months = sorted([str(m) for m in months], reverse=True)
+            filter_month = st.selectbox("Filter by month", ["All"] + months, key="history_month")
 
             # --- FILTER DATA ---
             filtered = df.copy()
@@ -259,6 +216,46 @@ elif tab == "History":
             if filter_month != "All":
                 filtered = filtered[filtered['date_dt'].dt.to_period('M').astype(str) == filter_month]
 
+            # --- TOTALS BAR (Filtered only) ---
+            st.markdown(
+                f"""
+                <div style='display:flex; gap:0.7em; margin-bottom:0.77em; justify-content:center; flex-wrap:wrap;'>
+                  <div style='background:#2498F7;color:white;padding:0.87em 1em;border-radius:1.2em;box-shadow:0 2px 9px #2498f749;min-width:102px;text-align:center;'>
+                    <span style='font-size:1em;'>💳 Total</span><br>
+                    <span style='font-size:1.11em;font-weight:bold;'>${filtered['amount'].sum():.2f}</span>
+                  </div>
+                  <div style='background:#3DBB5B;color:white;padding:0.87em 1em;border-radius:1.2em;box-shadow:0 2px 9px #3DBB5B44;min-width:102px;text-align:center;'>
+                    <span style='font-size:1em;'>💰 Cashback</span><br>
+                    <span style='font-size:1.11em;font-weight:bold;'>${filtered['cashback'].sum():.2f}</span>
+                  </div>
+                  <div style='background:#FFB200;color:white;padding:0.87em 1em;border-radius:1.2em;box-shadow:0 2px 9px #FFB20044;min-width:102px;text-align:center;'>
+                    <span style='font-size:1em;'>🧾 Net</span><br>
+                    <span style='font-size:1.11em;font-weight:bold;'>${filtered['net'].sum():.2f}</span>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # --- UNPAID TOTALS BAR (within filtered only, if any unpaid)
+            unpaid = filtered[filtered['paid'] == False]
+            if not unpaid.empty:
+                st.markdown(
+                    f"""
+                    <div style='display:flex; gap:0.7em; margin-bottom:0.77em; justify-content:center; flex-wrap:wrap;'>
+                      <div style='background:#ea5454;color:white;padding:0.87em 1em;border-radius:1.2em;box-shadow:0 2px 8px #ea54546a;min-width:102px;text-align:center;'>
+                        <span style='font-size:1em;'>🔴 Unpaid</span><br>
+                        <span style='font-size:1.11em;font-weight:bold;'>${unpaid['amount'].sum():.2f}</span>
+                      </div>
+                      <div style='background:#f39c12;color:white;padding:0.87em 1em;border-radius:1.2em;box-shadow:0 2px 8px #f39c1260;min-width:102px;text-align:center;'>
+                        <span style='font-size:1em;'>Cashback</span><br>
+                        <span style='font-size:1.11em;font-weight:bold;'>${unpaid['cashback'].sum():.2f}</span>
+                      </div>
+                      <div style='background:#34495e;color:white;padding:0.87em 1em;border-radius:1.2em;box-shadow:0 2px 8px #34495e60;min-width:102px;text-align:center;'>
+                        <span style='font-size:1em;'>Net</span><br>
+                        <span style='font-size:1.11em;font-weight:bold;'>${unpaid['net'].sum():.2f}</span>
+                      </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
             # --- FLEXBOX STYLE ---
             st.markdown("""
             <style>
@@ -266,20 +263,20 @@ elif tab == "History":
                 display: flex;
                 background: #fff;
                 color: #222;
-                border-radius: 1.2em;
-                box-shadow: 0 2px 12px #d8dbf0;
-                margin-bottom: 0.9em;
-                font-size: 1.08em;
+                border-radius: 1.09em;
+                box-shadow: 0 2px 10px #d8dbf0;
+                margin-bottom: 0.58em;
+                font-size: 1.03em;
                 font-weight: 500;
                 align-items: center;
-                padding: 0.3em 1em;
+                padding: 0.21em 0.54em;
                 overflow-x: auto;
-                min-width: 450px;
+                min-width: 330px;
                 max-width: 100vw;
             }
             .flex-table-cell {
-                flex: 1 0 80px;
-                padding: 0.3em 0.4em;
+                flex: 1 0 61px;
+                padding: 0.23em 0.21em;
                 text-align: left;
                 white-space: nowrap;
             }
@@ -291,16 +288,17 @@ elif tab == "History":
                 color: #1d5ca5;
                 border: none;
                 border-radius: 0.7em;
-                padding: 0.32em 1.1em;
-                font-size: 1.08em;
+                padding: 0.22em 0.8em;
+                font-size: 1.05em;
                 cursor: pointer;
-                font-weight: 700;
-                box-shadow: 0 1px 3px #e1e7f6cc;
+                font-weight: 600;
+                box-shadow: 0 1px 2px #e1e7f6cc;
                 transition: background 0.18s;
             }
             .edit-btn:hover { background: #dbefff; }
-            @media (max-width: 650px) {
-                .flex-table-row { font-size: 1em; min-width: 350px;}
+            @media (max-width: 500px) {
+                .flex-table-row { font-size: .96em; min-width: 250px; padding:0.15em 0.12em;}
+                .flex-table-cell { flex: 1 0 48px; padding: 0.14em 0.06em;}
             }
             </style>
             """, unsafe_allow_html=True)
@@ -340,7 +338,7 @@ elif tab == "History":
                         """,
                         unsafe_allow_html=True
                     )
-                    # Show Streamlit edit button if not currently editing this row
+                    # Show edit button only if not currently editing this row
                     if st.session_state.get("edit_row") != idx:
                         if st.button("✏️", key=f"edit_{idx}"):
                             st.session_state.edit_row = idx
@@ -349,7 +347,7 @@ elif tab == "History":
                     if st.session_state.get("edit_row") == idx:
                         edit_row = df.loc[idx]
                         st.markdown(
-                            "<div style='background:#f9fcff;border-radius:1em;padding:1.2em 1em 0.7em 1em;margin-bottom:1.1em;margin-top:-0.7em;box-shadow:0 2px 8px #e3eefa;'>",
+                            "<div style='background:#f9fcff;border-radius:0.99em;padding:1.08em 0.8em 0.5em 0.8em;margin-bottom:1em;margin-top:-0.6em;box-shadow:0 2px 6px #e3eefa;'>",
                             unsafe_allow_html=True
                         )
                         st.write("**Edit Purchase:**")
