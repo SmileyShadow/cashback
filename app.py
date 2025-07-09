@@ -7,6 +7,7 @@ from datetime import datetime
 from fpdf import FPDF
 import tempfile
 import os
+import requests
 
 # --- Category label mapping for PDF receipts (emojis become English text) ---
 PDF_CATEGORY_LABELS = {
@@ -20,9 +21,29 @@ PDF_CATEGORY_LABELS = {
     # Add more as needed!
 }
 
+# --- Robust Font Ensurer for PDF ---
+FONT_PATH = "DejaVuSans.ttf"
+FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
+
+def ensure_font():
+    retry = 3
+    while retry > 0:
+        try:
+            if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 100_000:
+                r = requests.get(FONT_URL, timeout=10)
+                with open(FONT_PATH, "wb") as f:
+                    f.write(r.content)
+            from fontTools.ttLib import TTFont
+            _ = TTFont(FONT_PATH)
+            break
+        except Exception:
+            if os.path.exists(FONT_PATH):
+                os.remove(FONT_PATH)
+            retry -= 1
+
 # --- PDF Receipt Generation ---
 def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
-    import requests
+    ensure_font()
 
     class PDF(FPDF):
         def header(self):
@@ -49,15 +70,6 @@ def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
             self.set_font('DejaVu', 'I', 8)
             self.set_text_color(130,130,130)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
-
-    # Robust font handling
-    FONT_PATH = "DejaVuSans.ttf"
-    FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
-    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 100_000:
-        import requests
-        r = requests.get(FONT_URL, timeout=10)
-        with open(FONT_PATH, "wb") as f:
-            f.write(r.content)
 
     pdf = PDF()
     pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
@@ -115,7 +127,7 @@ def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
     pdf.output(temp_path)
     return temp_path
 
-# --- UI/Meta ---
+# -- Add custom Apple Touch Icon and browser tab icon --
 st.markdown("""
     <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -144,7 +156,6 @@ def get_gsheets():
     sh = gc.open("cashback_app")
     cards_ws = sh.worksheet("cards")
     purchases_ws = sh.worksheet("purchases")
-    # Ensure receipts worksheet exists
     try:
         receipts_ws = sh.worksheet("receipts")
     except:
@@ -214,10 +225,8 @@ def save_receipt_snapshot(just_paid_df):
 
 def load_receipts_history():
     rows = receipts_ws.get_all_records()
-    # Each row: {"receipt_id": ..., "paid_at": ..., "data_json": ...}
     return rows
 
-# -- Session state --
 if "new_card_categories" not in st.session_state:
     st.session_state.new_card_categories = {}
 if "edit_purchase_index" not in st.session_state:
@@ -406,7 +415,6 @@ elif tab == "History":
                     for idx in to_pay.index:
                         purchases[idx]["paid"] = True
                     save_purchases(purchases)
-                    # Save the paid snapshot to receipts history!
                     receipt_id, paid_at = save_receipt_snapshot(to_pay.copy())
                     st.session_state.just_paid = to_pay.copy()
                     st.session_state.just_paid_id = receipt_id
@@ -414,15 +422,145 @@ elif tab == "History":
                     st.success(f"Marked {len(to_pay)} purchases as paid! Receipt #{receipt_id}")
                     st.rerun()
 
-            # --- FLEX ROW TABLE STYLES (unchanged) ---
-
-            st.markdown(""" ... your flex table CSS ... """, unsafe_allow_html=True)  # keep your style as in your version
+            # --- FLEX ROW TABLE STYLES ---
+            st.markdown("""
+            <style>
+            .flex-table-row, .flex-table-header {
+                display: flex;
+                align-items: center;
+                background: #eef1f8;
+                color: #2851a3;
+                font-weight: 700;
+                border-radius: 1.1em;
+                box-shadow: 0 2px 8px #e4eefc50;
+                padding: 0.65em 0.75em;
+                margin-bottom: 7px;
+                min-width: 650px;
+                overflow-x: auto;
+                font-size: 1.09em;
+                gap: 0.3em;
+            }
+            .flex-table-row {
+                background: #fff !important;
+                color: #222 !important;
+                font-weight: 500;
+                box-shadow: 0 2px 8px #e4eefc80;
+            }
+            .flex-col {
+                min-width: 80px;
+                text-align: left;
+                padding-right: 8px;
+            }
+            .flex-col.amount, .flex-col.cashback, .flex-col.net {
+                text-align: right;
+                min-width: 85px;
+            }
+            .flex-col.paid, .flex-col.edit {
+                text-align: center;
+                min-width: 48px;
+            }
+            .flex-col.edit { padding-left: 6px; }
+            .edit-btn {
+                background: #eaf3fb;
+                color: #1d5ca5;
+                border: none;
+                border-radius: 0.7em;
+                padding: 0.23em 0.9em;
+                font-size: 1.09em;
+                cursor: pointer;
+                font-weight: 600;
+                box-shadow: 0 1px 3px #e1e7f6cc;
+                transition: background 0.18s;
+            }
+            .edit-btn:hover { background: #dbefff; }
+            @media (max-width: 700px) {
+                .flex-table-row, .flex-table-header { min-width: 550px; font-size: 1.01em;}
+                .flex-col { min-width: 62px;}
+                .flex-col.amount, .flex-col.cashback, .flex-col.net { min-width: 73px;}
+                .flex-col.paid, .flex-col.edit { min-width: 40px;}
+            }
+            @media (max-width: 450px) {
+                .flex-table-row, .flex-table-header { min-width: 400px; font-size: .98em;}
+                .flex-col { min-width: 48px; }
+                .flex-col.amount, .flex-col.cashback, .flex-col.net { min-width: 60px;}
+                .flex-col.paid, .flex-col.edit { min-width: 36px;}
+            }
+            </style>
+            """, unsafe_allow_html=True)
 
             # --- HEADER ---
-            st.markdown(""" ... your table header HTML ... """, unsafe_allow_html=True)
+            st.markdown("""
+            <div class="flex-table-header">
+              <div class="flex-col">Date</div>
+              <div class="flex-col">Card</div>
+              <div class="flex-col">Category</div>
+              <div class="flex-col amount">Amount</div>
+              <div class="flex-col cashback">Cashback</div>
+              <div class="flex-col net">Net</div>
+              <div class="flex-col paid">Paid</div>
+              <div class="flex-col edit">Edit</div>
+            </div>
+            """, unsafe_allow_html=True)
 
             # --- PURCHASE ROWS ---
-            # ... unchanged from your last version ...
+            if not filtered.empty:
+                for i, row in filtered.iterrows():
+                    idx = row.name
+                    st.markdown(
+                        f"""
+                        <div class="flex-table-row">
+                          <div class="flex-col">{row['date_only']}</div>
+                          <div class="flex-col">{row['card']}</div>
+                          <div class="flex-col">{row['category']}</div>
+                          <div class="flex-col amount">${row['amount']:.2f}</div>
+                          <div class="flex-col cashback">${row['cashback']:.2f}</div>
+                          <div class="flex-col net">${row['net']:.2f}</div>
+                          <div class="flex-col paid">{row['paid_str']}</div>
+                          <div class="flex-col edit">
+                            {('<b>Editing…</b>' if st.session_state.get('edit_row') == idx else '')}
+                          </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    # Edit button logic
+                    if st.session_state.get("edit_row") != idx:
+                        if st.button("✏️", key=f"edit_{idx}"):
+                            st.session_state.edit_row = idx
+
+                    # --- EDIT FORM: directly under the row being edited ---
+                    if st.session_state.get("edit_row") == idx:
+                        edit_row = df.loc[idx]
+                        st.markdown(
+                            "<div style='background:#f9fcff;border-radius:0.99em;padding:1.08em 0.8em 0.5em 0.8em;margin-bottom:1em;margin-top:-0.6em;box-shadow:0 2px 6px #e3eefa;'>",
+                            unsafe_allow_html=True
+                        )
+                        st.write("**Edit Purchase:**")
+                        colE1, colE2, colE3 = st.columns([3, 1, 1])
+                        with colE1:
+                            new_amount = st.number_input("Amount", value=float(edit_row["amount"]), min_value=0.0, step=0.01, key=f"edit_amount_{idx}")
+                            new_paid = st.checkbox("Paid", value=edit_row["paid"], key=f"edit_paid_{idx}")
+                        with colE2:
+                            if st.button("Save", key=f"save_edit_{idx}"):
+                                purchases[idx]["amount"] = new_amount
+                                purchases[idx]["paid"] = new_paid
+                                save_purchases(purchases)
+                                st.success("Purchase updated!")
+                                st.session_state.edit_row = None
+                                st.rerun()
+                        with colE3:
+                            if st.button("Delete", key=f"delete_edit_{idx}"):
+                                purchases.pop(idx)
+                                save_purchases(purchases)
+                                st.success("Purchase deleted!")
+                                st.session_state.edit_row = None
+                                st.rerun()
+                            if st.button("Cancel", key=f"cancel_edit_{idx}"):
+                                st.session_state.edit_row = None
+                                st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.info("No purchases match your filters.")
 
             # --- EXPORT RECEIPT AS PDF FOR JUST PAID ---
             logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
@@ -444,7 +582,7 @@ elif tab == "History":
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
     st.header("💳 Cards")
-    # ... rest of Cards Tab unchanged ...
+    # ... your Cards logic, unchanged ...
 
 # ---- 4. Receipts Tab (NEW!) ----
 elif tab == "Receipts":
