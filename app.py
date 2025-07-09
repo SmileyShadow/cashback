@@ -21,27 +21,49 @@ PDF_CATEGORY_LABELS = {
     # Add more as needed!
 }
 
-# --- Robust Font Ensurer for PDF ---
+# --- Robust Font Loader for PDF ---
 FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
+FONT_MIN_SIZE = 350 * 1024  # 350KB is normal for DejaVuSans.ttf
 
-def get_session_font_path():
+def get_valid_font_path():
+    import requests
+    from fontTools.ttLib import TTFont
     tempdir = tempfile.gettempdir()
-    font_path = os.path.join(tempdir, f"dejavu_{st.session_state.get('font_session','default')}.ttf")
-    if not os.path.exists(font_path) or os.path.getsize(font_path) < 100_000:
-        r = requests.get(FONT_URL, timeout=12)
+    # Each session gets its own font file to avoid concurrency bugs
+    session_id = st.session_state.get("font_session", None)
+    if not session_id:
+        session_id = str(datetime.now().timestamp()).replace(".", "")
+        st.session_state["font_session"] = session_id
+    font_path = os.path.join(tempdir, f"dejavu_{session_id}.ttf")
+    tries = 3
+    while tries > 0:
+        # Remove if corrupt
+        if os.path.exists(font_path):
+            try:
+                if os.path.getsize(font_path) > FONT_MIN_SIZE:
+                    TTFont(font_path)
+                    return font_path
+                else:
+                    os.remove(font_path)
+            except Exception:
+                os.remove(font_path)
+        # Download fresh
+        r = requests.get(FONT_URL, timeout=15)
         with open(font_path, "wb") as f:
             f.write(r.content)
-    return font_path
-
-def ensure_font_session():
-    # Make sure each session uses its own font file to avoid FPDF/file errors
-    if 'font_session' not in st.session_state:
-        st.session_state.font_session = str(datetime.now().timestamp()).replace('.','')
-ensure_font_session()
+        tries -= 1
+    # Final check and fail if still bad
+    if not os.path.exists(font_path) or os.path.getsize(font_path) < FONT_MIN_SIZE:
+        raise RuntimeError("Could not download a valid DejaVuSans.ttf font file for PDF receipts.")
+    try:
+        TTFont(font_path)
+        return font_path
+    except Exception:
+        raise RuntimeError("Downloaded font is corrupt, aborting PDF export.")
 
 # --- PDF Receipt Generation ---
 def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
-    font_path = get_session_font_path()
+    font_path = get_valid_font_path()
 
     class PDF(FPDF):
         def header(self):
