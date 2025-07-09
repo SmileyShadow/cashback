@@ -32,6 +32,7 @@ def generate_pdf_receipt(df, logo_url=None):
             self.set_text_color(130,130,130)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
+    # --- Download font reliably, check for valid font file ---
     FONT_PATH = "DejaVuSans.ttf"
     FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
 
@@ -42,11 +43,12 @@ def generate_pdf_receipt(df, logo_url=None):
             with open(FONT_PATH, "wb") as f:
                 f.write(r.content)
         else:
+            # Fallback to a backup font location (eg. Google Fonts)
             backup_url = "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/fonts/ttf/JetBrainsMono-Regular.ttf"
             r2 = requests.get(backup_url, timeout=10)
             with open(FONT_PATH, "wb") as f:
                 f.write(r2.content)
-
+    
     pdf = PDF()
     pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
     pdf.add_font('DejaVu', 'B', FONT_PATH, uni=True)
@@ -55,11 +57,17 @@ def generate_pdf_receipt(df, logo_url=None):
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("DejaVu", size=11)
 
+    # ... [rest of your code as before]
+    # Copy your receipt table, totals, etc. below this line
+
+
+    # Colors
     header_bg = (40, 116, 207)
     header_fg = (255,255,255)
     row_alt_bg = (240,244,251)
     row_normal_bg = (255,255,255)
 
+    # Table header
     col_names = ["Date", "Card", "Category", "Amount", "Cashback", "Net"]
     col_widths = [32, 26, 30, 28, 26, 28]
     pdf.set_fill_color(*header_bg)
@@ -71,6 +79,7 @@ def generate_pdf_receipt(df, logo_url=None):
     pdf.set_font("DejaVu", "", 10)
     pdf.set_text_color(60,60,60)
 
+    # Table rows
     for j, (_, row) in enumerate(df.iterrows()):
         fill = row_alt_bg if j%2==0 else row_normal_bg
         pdf.set_fill_color(*fill)
