@@ -7,53 +7,15 @@ from datetime import datetime
 from fpdf import FPDF
 import tempfile
 import os
-import requests
-import hashlib
-import uuid
 
-# --- Category label mapping for PDF receipts (emojis become English text) ---
-PDF_CATEGORY_LABELS = {
-    "🍔": "Food",
-    "🧺": "Groceries",
-    "💻": "Online",
-    "Other": "Other",
-    "⛽": "Fuel",
-    "⚕️": "Pharmacy",
-    "💵": "Cash",
-    # Add more as needed!
-}
-
-# --- Robust, safe, atomic font loader for Streamlit/FPDF ---
-def get_dejavu_font_path():
-    font_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
-    salt = str(uuid.uuid4()) + str(os.getpid())
-    temp_dir = tempfile.gettempdir()
-    font_basename = "dejavusans_streamlit_" + hashlib.sha1(salt.encode()).hexdigest()[:10] + ".ttf"
-    font_path = os.path.join(temp_dir, font_basename)
-    # Download atomically if not exists or corrupted
-    if not os.path.exists(font_path) or os.path.getsize(font_path) < 100_000:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp:
-            r = requests.get(font_url, timeout=10)
-            tmp.write(r.content)
-            tmp.flush()
-            # Validate file: if not valid TTF, delete
-            try:
-                from fontTools.ttLib import TTFont
-                TTFont(tmp.name)  # will raise if not valid font
-                os.rename(tmp.name, font_path)
-            except Exception:
-                os.remove(tmp.name)
-                raise RuntimeError("Could not download a valid TTF font for PDF export. Try again.")
-    return font_path
-
-# --- PDF Receipt Generation ---
-def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
-    FONT_PATH = get_dejavu_font_path()
+def generate_pdf_receipt(df, logo_url=None):
+    import shutil
 
     class PDF(FPDF):
         def header(self):
             if logo_url:
                 try:
+                    import requests
                     response = requests.get(logo_url)
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_logo:
                         tmp_logo.write(response.content)
@@ -63,19 +25,30 @@ def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
                     pass
             self.set_font('DejaVu', 'B', 16)
             self.cell(0, 10, 'Purchase Receipt', ln=True, align='C')
-            if receipt_id:
-                self.set_font('DejaVu', '', 10)
-                self.set_text_color(70, 70, 70)
-                self.cell(0, 7, f"Receipt #: {receipt_id}", ln=True, align='C')
-            if paid_at:
-                self.cell(0, 6, f"Paid at: {paid_at}", ln=True, align='C')
-            self.ln(4)
+            self.ln(6)
         def footer(self):
             self.set_y(-12)
             self.set_font('DejaVu', 'I', 8)
             self.set_text_color(130,130,130)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
+    # --- Download font reliably, check for valid font file ---
+    FONT_PATH = "DejaVuSans.ttf"
+    FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
+
+    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 100_000:
+        import requests
+        r = requests.get(FONT_URL, timeout=10)
+        if r.ok and r.headers.get("Content-Type","").startswith("font/"):
+            with open(FONT_PATH, "wb") as f:
+                f.write(r.content)
+        else:
+            # Fallback to a backup font location (eg. Google Fonts)
+            backup_url = "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/fonts/ttf/JetBrainsMono-Regular.ttf"
+            r2 = requests.get(backup_url, timeout=10)
+            with open(FONT_PATH, "wb") as f:
+                f.write(r2.content)
+    
     pdf = PDF()
     pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
     pdf.add_font('DejaVu', 'B', FONT_PATH, uni=True)
@@ -84,7 +57,11 @@ def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("DejaVu", size=11)
 
-    # Table styling
+    # ... [rest of your code as before]
+    # Copy your receipt table, totals, etc. below this line
+
+
+    # Colors
     header_bg = (40, 116, 207)
     header_fg = (255,255,255)
     row_alt_bg = (240,244,251)
@@ -97,7 +74,7 @@ def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
     pdf.set_text_color(*header_fg)
     pdf.set_font("DejaVu", "B", 11)
     for i, col in enumerate(col_names):
-        pdf.cell(col_widths[i], 9, col, border=1, align='C', fill=True)
+        pdf.cell(col_widths[i], 9, str(col), border=1, align='C', fill=True)
     pdf.ln()
     pdf.set_font("DejaVu", "", 10)
     pdf.set_text_color(60,60,60)
@@ -106,11 +83,9 @@ def generate_pdf_receipt(df, logo_url=None, receipt_id=None, paid_at=None):
     for j, (_, row) in enumerate(df.iterrows()):
         fill = row_alt_bg if j%2==0 else row_normal_bg
         pdf.set_fill_color(*fill)
-        cat_val = str(row['category'])
-        cat_label = PDF_CATEGORY_LABELS.get(cat_val, cat_val)
         pdf.cell(col_widths[0], 8, str(row['date_only']), border=1, align='C', fill=True)
         pdf.cell(col_widths[1], 8, str(row['card']), border=1, align='C', fill=True)
-        pdf.cell(col_widths[2], 8, cat_label, border=1, align='C', fill=True)
+        pdf.cell(col_widths[2], 8, str(row['category']), border=1, align='C', fill=True)
         pdf.cell(col_widths[3], 8, f"${row['amount']:.2f}", border=1, align='C', fill=True)
         pdf.cell(col_widths[4], 8, f"${row['cashback']:.2f}", border=1, align='C', fill=True)
         pdf.cell(col_widths[5], 8, f"${row['net']:.2f}", border=1, align='C', fill=True)
@@ -140,6 +115,7 @@ st.markdown("""
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 """, unsafe_allow_html=True)
 
+# -- Set page config: title, browser tab icon (favicon), and layout --
 st.set_page_config(
     page_title="Cashback Cards App",
     page_icon="https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png",
@@ -161,14 +137,9 @@ def get_gsheets():
     sh = gc.open("cashback_app")
     cards_ws = sh.worksheet("cards")
     purchases_ws = sh.worksheet("purchases")
-    try:
-        receipts_ws = sh.worksheet("receipts")
-    except:
-        receipts_ws = sh.add_worksheet(title="receipts", rows=100, cols=4)
-        receipts_ws.append_row(["receipt_id", "paid_at", "data_json"])
-    return cards_ws, purchases_ws, receipts_ws, sh
+    return cards_ws, purchases_ws
 
-cards_ws, purchases_ws, receipts_ws, sh = get_gsheets()
+cards_ws, purchases_ws = get_gsheets()
 
 def load_cards():
     records = cards_ws.get_all_records()
@@ -220,18 +191,6 @@ def save_purchases(purchases):
     if sheet_len > len(values):
         purchases_ws.batch_clear([f"A{len(values)+1}:E{sheet_len}"])
 
-# -- Receipts history functions --
-def save_receipt_snapshot(just_paid_df):
-    receipt_id = datetime.now().strftime('%Y%m%d%H%M%S')
-    paid_at = datetime.now().strftime('%Y-%m-%d %H:%M')
-    data_json = just_paid_df.to_json(orient="records")
-    receipts_ws.append_row([receipt_id, paid_at, data_json])
-    return receipt_id, paid_at
-
-def load_receipts_history():
-    rows = receipts_ws.get_all_records()
-    return rows
-
 if "new_card_categories" not in st.session_state:
     st.session_state.new_card_categories = {}
 if "edit_purchase_index" not in st.session_state:
@@ -254,7 +213,6 @@ def tabs_nav():
         "Add Purchase": "🟢 Add Purchase",
         "History": "📜 History",
         "Cards": "💳 Cards",
-        "Receipts": "🧾 Receipts",    # <--- NEW TAB!
     }
     st.markdown("""
         <style>
@@ -262,6 +220,7 @@ def tabs_nav():
         </style>
         """, unsafe_allow_html=True)
     cols = st.columns(len(tabs))
+    selected = st.session_state.get("current_tab", "Add Purchase")
     for i, (tab, label) in enumerate(tabs.items()):
         if cols[i].button(label, use_container_width=True):
             st.session_state.current_tab = tab
@@ -271,7 +230,6 @@ def tabs_nav():
 tab = tabs_nav()
 cards = load_cards()
 purchases = load_purchases()
-
 
 # ---- 1. Add Purchase Tab ----
 if tab == "Add Purchase":
@@ -323,10 +281,6 @@ elif tab == "History":
     st.header("📜 Purchase History")
     if "just_paid" not in st.session_state:
         st.session_state.just_paid = None
-    if "just_paid_id" not in st.session_state:
-        st.session_state.just_paid_id = None
-    if "just_paid_at" not in st.session_state:
-        st.session_state.just_paid_at = None
 
     if not purchases:
         st.info("No purchases yet.")
@@ -421,11 +375,8 @@ elif tab == "History":
                     for idx in to_pay.index:
                         purchases[idx]["paid"] = True
                     save_purchases(purchases)
-                    receipt_id, paid_at = save_receipt_snapshot(to_pay.copy())
                     st.session_state.just_paid = to_pay.copy()
-                    st.session_state.just_paid_id = receipt_id
-                    st.session_state.just_paid_at = paid_at
-                    st.success(f"Marked {len(to_pay)} purchases as paid! Receipt #{receipt_id}")
+                    st.success(f"Marked {len(to_pay)} purchases as paid!")
                     st.rerun()
 
             # --- FLEX ROW TABLE STYLES ---
@@ -480,7 +431,7 @@ elif tab == "History":
             }
             .edit-btn:hover { background: #dbefff; }
             @media (max-width: 700px) {
-                .flex-table-row, .flex-table-header { min-width: 550px; font-size: 1.01em;}
+                .flex-table-row, .flex-table-header { min-width: 550px; font-size:1.01em;}
                 .flex-col { min-width: 62px;}
                 .flex-col.amount, .flex-col.cashback, .flex-col.net { min-width: 73px;}
                 .flex-col.paid, .flex-col.edit { min-width: 40px;}
@@ -572,13 +523,11 @@ elif tab == "History":
             logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
             if st.session_state.get("just_paid") is not None:
                 just_paid = st.session_state["just_paid"]
-                just_paid_id = st.session_state.get("just_paid_id")
-                just_paid_at = st.session_state.get("just_paid_at")
                 if not just_paid.empty:
                     st.subheader("🧾 Receipt for Paid Purchases")
-                    pdf_path = generate_pdf_receipt(just_paid, logo_url=logo_url, receipt_id=just_paid_id, paid_at=just_paid_at)
+                    pdf_path = generate_pdf_receipt(just_paid, logo_url=logo_url)
                     with open(pdf_path, "rb") as pdf_file:
-                        st.download_button("⬇️ Download Receipt as PDF", pdf_file.read(), file_name=f"paid_receipt_{just_paid_id}.pdf", mime="application/pdf")
+                        st.download_button("⬇️ Download Receipt as PDF", pdf_file.read(), file_name="paid_receipt.pdf", mime="application/pdf")
                     if st.button("❌ Hide Receipt"):
                         st.session_state.just_paid = None
 
@@ -588,33 +537,77 @@ elif tab == "History":
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
     st.header("💳 Cards")
-    # ... your Cards logic, unchanged ...
+    with st.expander("➕ Create Card"):
+        card_name = st.text_input("Card Name", key="card_name")
+        col1, col2, col3 = st.columns([3,2,1])
+        with col1:
+            cat_name = st.text_input("Category", key="cat_name")
+        with col2:
+            cat_percent = st.number_input("% Cashback", 0.0, 100.0, 1.0, step=0.1, key="cat_percent")
+        with col3:
+            if st.button("Add Category", key="addcatbtn"):
+                if cat_name and cat_percent > 0:
+                    st.session_state.new_card_categories[cat_name] = cat_percent / 100.0
+                    st.success(f"Added category '{cat_name}' ({cat_percent}%)")
+        if st.session_state.new_card_categories:
+            st.markdown("**Categories Added:**")
+            for cat, pct in list(st.session_state.new_card_categories.items()):
+                colA, colB = st.columns([4,1])
+                colA.write(f"- {cat}: {pct*100:.1f}% ")
+                if colB.button("🗑️ Remove", key=f"delcat_{cat}"):
+                    st.session_state.new_card_categories.pop(cat)
+                    st.rerun()
+        if st.button("Create Card", use_container_width=True):
+            if card_name and st.session_state.new_card_categories:
+                cards[card_name] = st.session_state.new_card_categories.copy()
+                save_cards(cards)
+                st.session_state.new_card_categories = {}
+                st.success(f"Card '{card_name}' created.")
+                st.rerun()
+            else:
+                st.error("Enter card name and at least one category.")
 
-# ---- 4. Receipts Tab (NEW!) ----
-elif tab == "Receipts":
-    st.header("🧾 Receipts History")
-    receipts = load_receipts_history()
-    if not receipts:
-        st.info("No receipts found yet.")
+    if cards:
+        for card, cats in list(cards.items()):
+            with st.expander(f"✏️ Edit Card: {card}"):
+                del_card = st.button(f"🗑️ Delete Card", key=f"delcard_{card}")
+                if del_card:
+                    cards.pop(card)
+                    save_cards(cards)
+                    st.success(f"Deleted card '{card}'")
+                    st.rerun()
+                for cat, pct in list(cats.items()):
+                    col1, col2, col3 = st.columns([3,2,1])
+                    with col1:
+                        new_cat_name = st.text_input("Category", value=cat, key=f"editcatname_{card}_{cat}")
+                    with col2:
+                        new_pct = st.number_input("% Cashback", 0.0, 100.0, pct*100, key=f"editcatpct_{card}_{cat}")
+                    with col3:
+                        if st.button("🗑️ Remove", key=f"removecat_{card}_{cat}"):
+                            cards[card].pop(cat)
+                            save_cards(cards)
+                            st.rerun()
+                    if new_cat_name != cat and new_cat_name != "":
+                        cards[card][new_cat_name] = cards[card].pop(cat)
+                        save_cards(cards)
+                        st.rerun()
+                    if new_pct != pct*100:
+                        cards[card][new_cat_name] = new_pct/100.0
+                        save_cards(cards)
+                        st.rerun()
+                colx1, colx2, colx3 = st.columns([3,2,1])
+                with colx1:
+                    extra_cat = st.text_input("New Category", key=f"extra_cat_{card}")
+                with colx2:
+                    extra_pct = st.number_input("% Cashback", 0.0, 100.0, 1.0, step=0.1, key=f"extra_pct_{card}")
+                with colx3:
+                    if st.button("Add to Card", key=f"add_extra_{card}"):
+                        if extra_cat and extra_pct > 0:
+                            cards[card][extra_cat] = extra_pct / 100.0
+                            save_cards(cards)
+                            st.success(f"Added category '{extra_cat}' to {card}")
+                            st.rerun()
     else:
-        for r in reversed(receipts):  # most recent first
-            receipt_id = r.get("receipt_id", "-")
-            paid_at = r.get("paid_at", "-")
-            data_json = r.get("data_json", "[]")
-            try:
-                df_receipt = pd.read_json(data_json)
-            except Exception:
-                continue
-            st.markdown(f"""
-                <div style='background:#f8fafb;border-radius:1em;padding:0.9em 1.2em;margin-bottom:12px;box-shadow:0 2px 8px #e4eefc55;'>
-                    <b>Receipt #{receipt_id}</b> &nbsp;&nbsp; <span style='color:#3e5;'>🕑</span> {paid_at}
-                    <br>
-                    <span style='font-size:0.98em;color:#456;'>Total: <b>${df_receipt['amount'].sum():.2f}</b></span>
-            """, unsafe_allow_html=True)
-            logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
-            pdf_path = generate_pdf_receipt(df_receipt, logo_url=logo_url, receipt_id=receipt_id, paid_at=paid_at)
-            with open(pdf_path, "rb") as pdf_file:
-                st.download_button("⬇️ Download PDF", pdf_file.read(), file_name=f"receipt_{receipt_id}.pdf", mime="application/pdf", key=f"dlpdf_{receipt_id}")
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.info("No cards added yet.")
 
 st.caption("by Mohammed Salman! 🚀")
