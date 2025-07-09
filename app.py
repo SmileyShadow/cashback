@@ -4,6 +4,82 @@ import gspread
 from google.oauth2.service_account import Credentials
 import json
 from datetime import datetime
+from fpdf import FPDF
+import tempfile
+
+def generate_pdf_receipt(df, logo_url=None):
+    class PDF(FPDF):
+        def header(self):
+            if logo_url:
+                try:
+                    import requests
+                    response = requests.get(logo_url)
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_logo:
+                        tmp_logo.write(response.content)
+                        tmp_logo.flush()
+                        self.image(tmp_logo.name, 10, 8, 20)
+                except Exception:
+                    pass
+            self.set_font('Arial', 'B', 16)
+            self.cell(0, 10, 'Purchase Receipt', ln=True, align='C')
+            self.ln(6)
+        def footer(self):
+            self.set_y(-12)
+            self.set_font('Arial', 'I', 8)
+            self.set_text_color(130,130,130)
+            self.cell(0, 10, f'Page {self.page_no()}', align='C')
+
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_font("Arial", size=11)
+
+    # Colors
+    header_bg = (40, 116, 207)
+    header_fg = (255,255,255)
+    row_alt_bg = (240,244,251)
+    row_normal_bg = (255,255,255)
+
+    # Table header
+    col_names = ["Date", "Card", "Category", "Amount", "Cashback", "Net"]
+    col_widths = [32, 26, 30, 28, 26, 28]
+    pdf.set_fill_color(*header_bg)
+    pdf.set_text_color(*header_fg)
+    pdf.set_font("Arial", "B", 11)
+    for i, col in enumerate(col_names):
+        pdf.cell(col_widths[i], 9, col, border=1, align='C', fill=True)
+    pdf.ln()
+    pdf.set_font("Arial", "", 10)
+    pdf.set_text_color(60,60,60)
+
+    # Table rows
+    for j, (_, row) in enumerate(df.iterrows()):
+        fill = row_alt_bg if j%2==0 else row_normal_bg
+        pdf.set_fill_color(*fill)
+        pdf.cell(col_widths[0], 8, str(row['date_only']), border=1, align='C', fill=True)
+        pdf.cell(col_widths[1], 8, str(row['card']), border=1, align='C', fill=True)
+        pdf.cell(col_widths[2], 8, str(row['category']), border=1, align='C', fill=True)
+        pdf.cell(col_widths[3], 8, f"${row['amount']:.2f}", border=1, align='C', fill=True)
+        pdf.cell(col_widths[4], 8, f"${row['cashback']:.2f}", border=1, align='C', fill=True)
+        pdf.cell(col_widths[5], 8, f"${row['net']:.2f}", border=1, align='C', fill=True)
+        pdf.ln()
+
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(88, 10, "Totals", border=1, align='R')
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(col_widths[3], 10, f"${df['amount'].sum():.2f}", border=1, align='C')
+    pdf.cell(col_widths[4], 10, f"${df['cashback'].sum():.2f}", border=1, align='C')
+    pdf.cell(col_widths[5], 10, f"${df['net'].sum():.2f}", border=1, align='C')
+    pdf.ln(12)
+
+    pdf.set_font("Arial", 'I', 9)
+    pdf.set_text_color(100,100,100)
+    pdf.cell(0, 8, "Thank you for your payment!  —  Cashback Cards App", align='C')
+
+    temp_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf").name
+    pdf.output(temp_path)
+    return temp_path
+
 
 # -- Add custom Apple Touch Icon and browser tab icon --
 st.markdown("""
@@ -417,29 +493,15 @@ elif tab == "History":
             else:
                 st.info("No purchases match your filters.")
 
-            # --- EXPORT / PRINT RECEIPT FOR JUST PAID ---
+            # --- EXPORT RECEIPT AS PDF FOR JUST PAID ---
+            logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
             if st.session_state.get("just_paid") is not None:
                 just_paid = st.session_state["just_paid"]
                 if not just_paid.empty:
                     st.subheader("🧾 Receipt for Paid Purchases")
-
-                    # Export CSV
-                    csv = just_paid.to_csv(index=False).encode('utf-8')
-                    st.download_button("⬇️ Download Receipt as CSV", data=csv, file_name='paid_receipt.csv', mime='text/csv')
-
-                    # Show printable receipt
-                    receipt_html = just_paid.to_html(index=False)
-                    st.markdown("#### Print Receipt")
-                    st.markdown(
-                        f"""
-                        <div style="background:#f8fafb;padding:1em 1.3em;border-radius:1em;margin:1em 0;">
-                        {receipt_html}
-                        </div>
-                        <button onclick="window.print()" style="font-size:1.1em;padding:0.5em 1.2em;border-radius:0.5em;background:#1e90ff;color:white;border:none;margin:1em 0;">🖨️ Print</button>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                    # Optionally, clear after print
+                    pdf_path = generate_pdf_receipt(just_paid, logo_url=logo_url)
+                    with open(pdf_path, "rb") as pdf_file:
+                        st.download_button("⬇️ Download Receipt as PDF", pdf_file.read(), file_name="paid_receipt.pdf", mime="application/pdf")
                     if st.button("❌ Hide Receipt"):
                         st.session_state.just_paid = None
 
