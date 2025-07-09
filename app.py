@@ -197,7 +197,7 @@ elif tab == "History":
             df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
             df['date_only'] = df['date_dt'].dt.strftime('%Y-%m-%d')
 
-            # --- TOTALS BAR (Move to top!) ---
+            # --- TOTALS BAR (Top!) ---
             st.markdown(
                 f"""
                 <div style='display:flex; gap:1em; margin-bottom:1.2em; justify-content:center; flex-wrap:wrap;'>
@@ -220,7 +220,6 @@ elif tab == "History":
             all_cards = ["All"] + list(cards.keys())
             filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
             paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], horizontal=True)
-
             # -- Month filter --
             months = df['date_dt'].dt.to_period('M').dropna().unique()
             months = sorted([str(m) for m in months], reverse=True)
@@ -287,26 +286,53 @@ elif tab == "History":
             # --- PURCHASE ROWS ---
             if not filtered.empty:
                 for i, row in filtered.iterrows():
-                    st.markdown(
-                        f"""
-                        <div class="flex-table-row">
-                          <div class="flex-table-cell">{row['date_only']}</div>
-                          <div class="flex-table-cell">{row['card']}</div>
-                          <div class="flex-table-cell">{row['category']}</div>
-                          <div class="flex-table-cell amount">${row['amount']:.2f}</div>
-                          <div class="flex-table-cell cashback">${row['cashback']:.2f}</div>
-                          <div class="flex-table-cell net">${row['net']:.2f}</div>
-                          <div class="flex-table-cell paid">{row['paid_str']}</div>
-                          <div class="flex-table-cell edit">
-                            <a href="javascript:window.alert('Editing is not interactive in HTML. For live edit, add a form below!')" 
-                               style="color:#1f6fd4;text-decoration:none;font-size:1.2em;">✏️</a>
-                          </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                    idx = row.name  # index in filtered df, same as in df due to .copy()
+                    col1, col2 = st.columns([20,1])
+                    with col1:
+                        st.markdown(
+                            f"""
+                            <div class="flex-table-row">
+                              <div class="flex-table-cell">{row['date_only']}</div>
+                              <div class="flex-table-cell">{row['card']}</div>
+                              <div class="flex-table-cell">{row['category']}</div>
+                              <div class="flex-table-cell amount">${row['amount']:.2f}</div>
+                              <div class="flex-table-cell cashback">${row['cashback']:.2f}</div>
+                              <div class="flex-table-cell net">${row['net']:.2f}</div>
+                              <div class="flex-table-cell paid">{row['paid_str']}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                    with col2:
+                        if st.button("✏️", key=f"edit_{idx}"):
+                            st.session_state.edit_row = idx
+                # --- EDIT FORM BELOW TABLE ---
+                if "edit_row" in st.session_state and st.session_state.edit_row is not None:
+                    edit_idx = st.session_state.edit_row
+                    if edit_idx in df.index:
+                        edit_row = df.loc[edit_idx]
+                        st.subheader("Edit Purchase")
+                        new_amount = st.number_input("Amount", value=float(edit_row["amount"]), min_value=0.0, step=0.01, key="edit_amount")
+                        new_paid = st.checkbox("Paid", value=edit_row["paid"], key="edit_paid")
+                        if st.button("Save", key="save_edit"):
+                            purchases[edit_idx]["amount"] = new_amount
+                            purchases[edit_idx]["paid"] = new_paid
+                            save_purchases(purchases)
+                            st.success("Purchase updated!")
+                            st.session_state.edit_row = None
+                            st.rerun()
+                        if st.button("Delete", key="delete_edit"):
+                            purchases.pop(edit_idx)
+                            save_purchases(purchases)
+                            st.success("Purchase deleted!")
+                            st.session_state.edit_row = None
+                            st.rerun()
+                        if st.button("Cancel", key="cancel_edit"):
+                            st.session_state.edit_row = None
+                            st.rerun()
             else:
                 st.info("No purchases match your filters.")
+
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
