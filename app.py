@@ -332,7 +332,7 @@ def log_receipt_to_sheet(receipt_id, date, total_amount, file_id, file_url):
     receipts_ws.append_row([receipt_id, date, total_amount, file_id, file_url])
 
 # ---- 2. History Tab ----
-elif tab == "History":
+if tab == "History":
     st.header("📜 Purchase History")
     if "just_paid" not in st.session_state:
         st.session_state.just_paid = None
@@ -598,7 +598,7 @@ elif tab == "History":
             st.info("No purchases found.")
 
 # ---- 3. Cards Tab ----
-elif tab == "Cards":
+if tab == "Cards":
     st.header("💳 Cards")
     with st.expander("➕ Create Card"):
         card_name = st.text_input("Card Name", key="card_name")
@@ -676,7 +676,7 @@ elif tab == "Cards":
 
 #Reciepts TAb 
 
-elif tab == "Receipts":
+if tab == "Receipts":
     st.header("🧾 Receipts History")
     try:
         receipt_records = receipts_ws.get_all_records()
