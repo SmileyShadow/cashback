@@ -180,18 +180,10 @@ elif tab == "History":
     if not purchases:
         st.info("No purchases yet.")
     else:
-        all_cards = ["All"] + list(cards.keys())
-        filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
-        paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], horizontal=True)
-        filtered = [p for p in purchases if "card" in p and "category" in p and "amount" in p and "paid" in p]
-        if filter_card != "All":
-            filtered = [p for p in filtered if p["card"] == filter_card]
-        if paid_filter == "Paid only":
-            filtered = [p for p in filtered if p.get("paid") is True]
-        elif paid_filter == "Unpaid only":
-            filtered = [p for p in filtered if not p.get("paid")]
-
-        df = pd.DataFrame(filtered)
+        # Prepare DataFrame
+        df = pd.DataFrame([
+            p for p in purchases if "card" in p and "category" in p and "amount" in p and "paid" in p
+        ])
         if not df.empty:
             def get_cashback(row):
                 try:
@@ -202,7 +194,48 @@ elif tab == "History":
             df['cashback'] = df['amount'].astype(float) * df['cashback_percent']
             df['net'] = df['amount'].astype(float) - df['cashback']
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
-            df['date_only'] = df['date'].apply(lambda x: str(x)[:10] if isinstance(x, str) else x.strftime('%Y-%m-%d'))
+            df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
+            df['date_only'] = df['date_dt'].dt.strftime('%Y-%m-%d')
+
+            # --- TOTALS BAR (Move to top!) ---
+            st.markdown(
+                f"""
+                <div style='display:flex; gap:1em; margin-bottom:1.2em; justify-content:center; flex-wrap:wrap;'>
+                  <div style='background:#2498F7;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #2498f755;'>
+                    <span style='font-size:1.3em;'>💳 Total</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${df['amount'].sum():.2f}</span>
+                  </div>
+                  <div style='background:#3DBB5B;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #3DBB5B55;'>
+                    <span style='font-size:1.3em;'>💰 Cashback</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${df['cashback'].sum():.2f}</span>
+                  </div>
+                  <div style='background:#FFB200;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #FFB20055;'>
+                    <span style='font-size:1.3em;'>🧾 Net</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${df['net'].sum():.2f}</span>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # --- FILTERS (below totals) ---
+            all_cards = ["All"] + list(cards.keys())
+            filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
+            paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], horizontal=True)
+
+            # -- Month filter --
+            months = df['date_dt'].dt.to_period('M').dropna().unique()
+            months = sorted([str(m) for m in months], reverse=True)
+            filter_month = st.selectbox("Filter by month", ["All"] + months, key="history_month")
+
+            # --- FILTER DATA ---
+            filtered = df.copy()
+            if filter_card != "All":
+                filtered = filtered[filtered['card'] == filter_card]
+            if paid_filter == "Paid only":
+                filtered = filtered[filtered['paid'] == True]
+            elif paid_filter == "Unpaid only":
+                filtered = filtered[filtered['paid'] == False]
+            if filter_month != "All":
+                filtered = filtered[filtered['date_dt'].dt.to_period('M').astype(str) == filter_month]
 
             # --- FLEXBOX STYLE ---
             st.markdown("""
@@ -237,7 +270,7 @@ elif tab == "History":
             </style>
             """, unsafe_allow_html=True)
 
-            # --- HEADER (directly above rows!) ---
+            # --- HEADER ---
             st.markdown("""
             <div class="flex-table-row" style="background:#eef1f8;font-weight:700;color:#2851a3;">
               <div class="flex-table-cell">Date</div>
@@ -251,45 +284,29 @@ elif tab == "History":
             </div>
             """, unsafe_allow_html=True)
 
-            # --- PURCHASE ROWS (Each row = one line, always) ---
-            for i, row in df.iterrows():
-                st.markdown(
-                    f"""
-                    <div class="flex-table-row">
-                      <div class="flex-table-cell">{row['date_only']}</div>
-                      <div class="flex-table-cell">{row['card']}</div>
-                      <div class="flex-table-cell">{row['category']}</div>
-                      <div class="flex-table-cell amount">${row['amount']:.2f}</div>
-                      <div class="flex-table-cell cashback">${row['cashback']:.2f}</div>
-                      <div class="flex-table-cell net">${row['net']:.2f}</div>
-                      <div class="flex-table-cell paid">{row['paid_str']}</div>
-                      <div class="flex-table-cell edit">
-                        <a href="javascript:window.alert('Editing is not interactive in HTML. For live edit, add a form below!')" 
-                           style="color:#1f6fd4;text-decoration:none;font-size:1.2em;">✏️</a>
-                      </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-            # --- TOTALS BAR (Optional, below table) ---
-            st.markdown(
-                f"""
-                <div style='display:flex; gap:1em; margin-bottom:1em; justify-content:center; flex-wrap:wrap;'>
-                  <div style='background:#2498F7;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #2498f755;'>
-                    <span style='font-size:1.3em;'>💳 Total</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${df['amount'].sum():.2f}</span>
-                  </div>
-                  <div style='background:#3DBB5B;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #3DBB5B55;'>
-                    <span style='font-size:1.3em;'>💰 Cashback</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${df['cashback'].sum():.2f}</span>
-                  </div>
-                  <div style='background:#FFB200;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #FFB20055;'>
-                    <span style='font-size:1.3em;'>🧾 Net</span><br>
-                    <span style='font-size:1.4em;font-weight:bold;'>${df['net'].sum():.2f}</span>
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
+            # --- PURCHASE ROWS ---
+            if not filtered.empty:
+                for i, row in filtered.iterrows():
+                    st.markdown(
+                        f"""
+                        <div class="flex-table-row">
+                          <div class="flex-table-cell">{row['date_only']}</div>
+                          <div class="flex-table-cell">{row['card']}</div>
+                          <div class="flex-table-cell">{row['category']}</div>
+                          <div class="flex-table-cell amount">${row['amount']:.2f}</div>
+                          <div class="flex-table-cell cashback">${row['cashback']:.2f}</div>
+                          <div class="flex-table-cell net">${row['net']:.2f}</div>
+                          <div class="flex-table-cell paid">{row['paid_str']}</div>
+                          <div class="flex-table-cell edit">
+                            <a href="javascript:window.alert('Editing is not interactive in HTML. For live edit, add a form below!')" 
+                               style="color:#1f6fd4;text-decoration:none;font-size:1.2em;">✏️</a>
+                          </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.info("No purchases match your filters.")
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
