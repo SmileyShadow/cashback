@@ -197,86 +197,73 @@ elif tab == "History":
             df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
             df['date_only'] = df['date_dt'].dt.strftime('%Y-%m-%d')
 
-            # --- TOTALS BAR (Top, Modern) ---
+            # --- TOTALS BAR (Top!) ---
             st.markdown(
                 f"""
-                <div style='display:flex; gap:1em; margin-bottom:1.1em; justify-content:center; flex-wrap:wrap;'>
-                  <div style='background:#2498F7;color:white;padding:1.2em 2em;border-radius:1.3em;box-shadow:0 2px 12px #2498f755;'>
-                    <span style='font-size:1.17em;'>💳 Total</span><br>
-                    <span style='font-size:1.38em;font-weight:bold;'>${df['amount'].sum():.2f}</span>
+                <div style='display:flex; gap:1em; margin-bottom:1.2em; justify-content:center; flex-wrap:wrap;'>
+                  <div style='background:#2498F7;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #2498f755;'>
+                    <span style='font-size:1.3em;'>💳 Total</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${df['amount'].sum():.2f}</span>
                   </div>
-                  <div style='background:#3DBB5B;color:white;padding:1.2em 2em;border-radius:1.3em;box-shadow:0 2px 12px #3DBB5B55;'>
-                    <span style='font-size:1.17em;'>💰 Cashback</span><br>
-                    <span style='font-size:1.38em;font-weight:bold;'>${df['cashback'].sum():.2f}</span>
+                  <div style='background:#3DBB5B;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #3DBB5B55;'>
+                    <span style='font-size:1.3em;'>💰 Cashback</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${df['cashback'].sum():.2f}</span>
                   </div>
-                  <div style='background:#FFB200;color:white;padding:1.2em 2em;border-radius:1.3em;box-shadow:0 2px 12px #FFB20055;'>
-                    <span style='font-size:1.17em;'>🧾 Net</span><br>
-                    <span style='font-size:1.38em;font-weight:bold;'>${df['net'].sum():.2f}</span>
+                  <div style='background:#FFB200;color:white;padding:1em 1.5em;border-radius:1.5em;box-shadow:0 2px 12px #FFB20055;'>
+                    <span style='font-size:1.3em;'>🧾 Net</span><br>
+                    <span style='font-size:1.4em;font-weight:bold;'>${df['net'].sum():.2f}</span>
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-            # --- FILTERS (horizontal) ---
-            f1, f2, f3 = st.columns([3, 3, 4])
-            with f1:
-                all_cards = ["All"] + list(cards.keys())
-                filter_card = st.selectbox("Card", all_cards, key="history_card")
-            with f2:
-                paid_filter = st.radio("Paid", ["All", "✅ Paid", "❌ Unpaid"], horizontal=True)
-            with f3:
-                months = df['date_dt'].dt.to_period('M').dropna().unique()
-                months = sorted([str(m) for m in months], reverse=True)
-                filter_month = st.selectbox("Month", ["All"] + months, key="history_month")
+            # --- FILTERS (below totals) ---
+            all_cards = ["All"] + list(cards.keys())
+            filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
+            paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], horizontal=True)
+            # -- Month filter --
+            months = df['date_dt'].dt.to_period('M').dropna().unique()
+            months = sorted([str(m) for m in months], reverse=True)
+            filter_month = st.selectbox("Filter by month", ["All"] + months, key="history_month")
 
             # --- FILTER DATA ---
             filtered = df.copy()
             if filter_card != "All":
                 filtered = filtered[filtered['card'] == filter_card]
-            if paid_filter == "✅ Paid":
+            if paid_filter == "Paid only":
                 filtered = filtered[filtered['paid'] == True]
-            elif paid_filter == "❌ Unpaid":
+            elif paid_filter == "Unpaid only":
                 filtered = filtered[filtered['paid'] == False]
             if filter_month != "All":
                 filtered = filtered[filtered['date_dt'].dt.to_period('M').astype(str) == filter_month]
 
-            # --- CARD STYLE ---
+            # --- FLEXBOX STYLE ---
             st.markdown("""
             <style>
-            .cb-card-row {
+            .flex-table-row {
                 display: flex;
-                align-items: center;
-                gap: 0.7em;
                 background: #fff;
+                color: #222;
                 border-radius: 1.2em;
-                box-shadow: 0 2px 10px #d8dbf0;
-                margin-bottom: 0.95em;
+                box-shadow: 0 2px 12px #d8dbf0;
+                margin-bottom: 0.9em;
                 font-size: 1.08em;
                 font-weight: 500;
-                padding: 0.7em 1em 0.65em 1em;
+                align-items: center;
+                padding: 0.3em 1em;
                 overflow-x: auto;
-                min-width: 350px;
+                min-width: 450px;
                 max-width: 100vw;
             }
-            .cb-card-row .cb-col { white-space:nowrap; padding-right:8px;}
-            .cb-card-row .cb-date   { min-width: 87px; color: #2a4a88;}
-            .cb-card-row .cb-card   { min-width: 63px; }
-            .cb-card-row .cb-cat    { min-width: 44px; }
-            .cb-card-row .cb-amt    { min-width: 76px; text-align:right; color: #186e3c;}
-            .cb-card-row .cb-cash   { min-width: 70px; text-align:right; color: #ffae00;}
-            .cb-card-row .cb-net    { min-width: 68px; text-align:right; color: #1d5ca5;}
-            .cb-card-row .cb-paid   { min-width: 40px; text-align:center;}
-            .cb-card-row .cb-edit   { min-width: 54px; text-align:center;}
-            @media (max-width: 650px) {
-              .cb-card-row { font-size: .99em; min-width: 320px;}
-              .cb-card-row .cb-date { min-width: 63px;}
-              .cb-card-row .cb-card { min-width: 43px;}
-              .cb-card-row .cb-amt  { min-width: 59px;}
-              .cb-card-row .cb-cash { min-width: 55px;}
-              .cb-card-row .cb-net  { min-width: 54px;}
-              .cb-card-row .cb-paid { min-width: 28px;}
-              .cb-card-row .cb-edit { min-width: 38px;}
+            .flex-table-cell {
+                flex: 1 0 80px;
+                padding: 0.3em 0.4em;
+                text-align: left;
+                white-space: nowrap;
             }
-            .cb-edit-btn {
+            .flex-table-cell.amount, .flex-table-cell.cashback, .flex-table-cell.net { text-align: right; }
+            .flex-table-cell.paid { text-align: center;}
+            .flex-table-cell.edit { text-align: center;}
+            .edit-btn {
                 background: #eaf3fb;
                 color: #1d5ca5;
                 border: none;
@@ -288,83 +275,87 @@ elif tab == "History":
                 box-shadow: 0 1px 3px #e1e7f6cc;
                 transition: background 0.18s;
             }
-            .cb-edit-btn:hover { background: #dbefff; }
+            .edit-btn:hover { background: #dbefff; }
+            @media (max-width: 650px) {
+                .flex-table-row { font-size: 1em; min-width: 350px;}
+            }
             </style>
             """, unsafe_allow_html=True)
 
-            # --- HEADLINE ---
-# --- HEADER ---
-st.markdown("""
-<div class="flex-table-row" style="background:#eef1f8;font-weight:700;color:#2851a3;">
-  <div class="flex-table-cell">Date</div>
-  <div class="flex-table-cell">Card</div>
-  <div class="flex-table-cell">Category</div>
-  <div class="flex-table-cell amount">Amount</div>
-  <div class="flex-table-cell cashback">Cashback</div>
-  <div class="flex-table-cell net">Net</div>
-  <div class="flex-table-cell paid">Paid</div>
-  <div class="flex-table-cell edit">Edit</div>
-</div>
-""", unsafe_allow_html=True)
-
-# --- PURCHASE ROWS ---
-if not filtered.empty:
-    for i, row in filtered.iterrows():
-        idx = row.name
-        st.markdown(
-            f"""
-            <div class="flex-table-row">
-              <div class="flex-table-cell">{row['date_only']}</div>
-              <div class="flex-table-cell">{row['card']}</div>
-              <div class="flex-table-cell">{row['category']}</div>
-              <div class="flex-table-cell amount">${row['amount']:.2f}</div>
-              <div class="flex-table-cell cashback">${row['cashback']:.2f}</div>
-              <div class="flex-table-cell net">${row['net']:.2f}</div>
-              <div class="flex-table-cell paid">{row['paid_str']}</div>
-              <div class="flex-table-cell edit">
-                {"<b>Editing…</b>" if "edit_row" in st.session_state and st.session_state.edit_row == idx else ""}
-              </div>
+            # --- HEADER ---
+            st.markdown("""
+            <div class="flex-table-row" style="background:#eef1f8;font-weight:700;color:#2851a3;">
+              <div class="flex-table-cell">Date</div>
+              <div class="flex-table-cell">Card</div>
+              <div class="flex-table-cell">Category</div>
+              <div class="flex-table-cell amount">Amount</div>
+              <div class="flex-table-cell cashback">Cashback</div>
+              <div class="flex-table-cell net">Net</div>
+              <div class="flex-table-cell paid">Paid</div>
+              <div class="flex-table-cell edit">Edit</div>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
-        # Edit button is only shown if not editing this row
-        if "edit_row" not in st.session_state or st.session_state.edit_row != idx:
-            if st.button("✏️", key=f"edit_{idx}"):
-                st.session_state.edit_row = idx
+            """, unsafe_allow_html=True)
 
-        # --- EDIT FORM: immediately below the row being edited ---
-        if "edit_row" in st.session_state and st.session_state.edit_row == idx:
-            edit_row = df.loc[idx]
-            st.markdown(
-                "<div style='background:#f9fcff;border-radius:1em;padding:1.2em 1em 0.7em 1em;margin-bottom:1.1em;margin-top:-0.7em;box-shadow:0 2px 8px #e3eefa;'>",
-                unsafe_allow_html=True
-            )
-            st.write("**Edit Purchase:**")
-            colE1, colE2 = st.columns([3, 1])
-            with colE1:
-                new_amount = st.number_input("Amount", value=float(edit_row["amount"]), min_value=0.0, step=0.01, key=f"edit_amount_{idx}")
-                new_paid = st.checkbox("Paid", value=edit_row["paid"], key=f"edit_paid_{idx}")
-            with colE2:
-                if st.button("Save", key=f"save_edit_{idx}"):
-                    purchases[idx]["amount"] = new_amount
-                    purchases[idx]["paid"] = new_paid
-                    save_purchases(purchases)
-                    st.success("Purchase updated!")
-                    st.session_state.edit_row = None
-                    st.rerun()
-                if st.button("Delete", key=f"delete_edit_{idx}"):
-                    purchases.pop(idx)
-                    save_purchases(purchases)
-                    st.success("Purchase deleted!")
-                    st.session_state.edit_row = None
-                    st.rerun()
-                if st.button("Cancel", key=f"cancel_edit_{idx}"):
-                    st.session_state.edit_row = None
-                    st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-else:
-    st.info("No purchases match your filters.")
+            # --- PURCHASE ROWS ---
+            if not filtered.empty:
+                for i, row in filtered.iterrows():
+                    idx = row.name
+                    st.markdown(
+                        f"""
+                        <div class="flex-table-row">
+                          <div class="flex-table-cell">{row['date_only']}</div>
+                          <div class="flex-table-cell">{row['card']}</div>
+                          <div class="flex-table-cell">{row['category']}</div>
+                          <div class="flex-table-cell amount">${row['amount']:.2f}</div>
+                          <div class="flex-table-cell cashback">${row['cashback']:.2f}</div>
+                          <div class="flex-table-cell net">${row['net']:.2f}</div>
+                          <div class="flex-table-cell paid">{row['paid_str']}</div>
+                          <div class="flex-table-cell edit">
+                            {('<b>Editing…</b>' if st.session_state.get('edit_row') == idx else '')}
+                          </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    # Show Streamlit edit button if not currently editing this row
+                    if st.session_state.get("edit_row") != idx:
+                        if st.button("✏️", key=f"edit_{idx}"):
+                            st.session_state.edit_row = idx
+
+                    # --- EDIT FORM: directly under the row being edited ---
+                    if st.session_state.get("edit_row") == idx:
+                        edit_row = df.loc[idx]
+                        st.markdown(
+                            "<div style='background:#f9fcff;border-radius:1em;padding:1.2em 1em 0.7em 1em;margin-bottom:1.1em;margin-top:-0.7em;box-shadow:0 2px 8px #e3eefa;'>",
+                            unsafe_allow_html=True
+                        )
+                        st.write("**Edit Purchase:**")
+                        colE1, colE2, colE3 = st.columns([3, 1, 1])
+                        with colE1:
+                            new_amount = st.number_input("Amount", value=float(edit_row["amount"]), min_value=0.0, step=0.01, key=f"edit_amount_{idx}")
+                            new_paid = st.checkbox("Paid", value=edit_row["paid"], key=f"edit_paid_{idx}")
+                        with colE2:
+                            if st.button("Save", key=f"save_edit_{idx}"):
+                                purchases[idx]["amount"] = new_amount
+                                purchases[idx]["paid"] = new_paid
+                                save_purchases(purchases)
+                                st.success("Purchase updated!")
+                                st.session_state.edit_row = None
+                                st.rerun()
+                        with colE3:
+                            if st.button("Delete", key=f"delete_edit_{idx}"):
+                                purchases.pop(idx)
+                                save_purchases(purchases)
+                                st.success("Purchase deleted!")
+                                st.session_state.edit_row = None
+                                st.rerun()
+                            if st.button("Cancel", key=f"cancel_edit_{idx}"):
+                                st.session_state.edit_row = None
+                                st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.info("No purchases match your filters.")
+
 
 
 # ---- 3. Cards Tab ----
