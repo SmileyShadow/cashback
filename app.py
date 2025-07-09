@@ -30,11 +30,7 @@ def generate_pdf_receipt(df, logo_url=None):
             self.set_text_color(130,130,130)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
-    pdf = PDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-
-    # ---- Register Unicode font ----
+    # ---- Register Unicode font BEFORE any pdf = PDF() or add_page() ----
     FONT_PATH = "DejaVuSans.ttf"
     if not os.path.exists(FONT_PATH):
         import requests
@@ -42,9 +38,13 @@ def generate_pdf_receipt(df, logo_url=None):
         r = requests.get(url)
         with open(FONT_PATH, "wb") as f:
             f.write(r.content)
+
+    pdf = PDF()
     pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
     pdf.add_font('DejaVu', 'B', FONT_PATH, uni=True)
     pdf.add_font('DejaVu', 'I', FONT_PATH, uni=True)
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("DejaVu", size=11)
 
     # Colors
