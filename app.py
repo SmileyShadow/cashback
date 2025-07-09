@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from fpdf import FPDF
 import tempfile
+import os
 
 def generate_pdf_receipt(df, logo_url=None):
     class PDF(FPDF):
@@ -20,19 +21,31 @@ def generate_pdf_receipt(df, logo_url=None):
                         self.image(tmp_logo.name, 10, 8, 20)
                 except Exception:
                     pass
-            self.set_font('Arial', 'B', 16)
+            self.set_font('DejaVu', 'B', 16)
             self.cell(0, 10, 'Purchase Receipt', ln=True, align='C')
             self.ln(6)
         def footer(self):
             self.set_y(-12)
-            self.set_font('Arial', 'I', 8)
+            self.set_font('DejaVu', 'I', 8)
             self.set_text_color(130,130,130)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
     pdf = PDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Arial", size=11)
+
+    # ---- Register Unicode font ----
+    FONT_PATH = "DejaVuSans.ttf"
+    if not os.path.exists(FONT_PATH):
+        import requests
+        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
+        r = requests.get(url)
+        with open(FONT_PATH, "wb") as f:
+            f.write(r.content)
+    pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
+    pdf.add_font('DejaVu', 'B', FONT_PATH, uni=True)
+    pdf.add_font('DejaVu', 'I', FONT_PATH, uni=True)
+    pdf.set_font("DejaVu", size=11)
 
     # Colors
     header_bg = (40, 116, 207)
@@ -45,11 +58,11 @@ def generate_pdf_receipt(df, logo_url=None):
     col_widths = [32, 26, 30, 28, 26, 28]
     pdf.set_fill_color(*header_bg)
     pdf.set_text_color(*header_fg)
-    pdf.set_font("Arial", "B", 11)
+    pdf.set_font("DejaVu", "B", 11)
     for i, col in enumerate(col_names):
-        pdf.cell(col_widths[i], 9, col, border=1, align='C', fill=True)
+        pdf.cell(col_widths[i], 9, str(col), border=1, align='C', fill=True)
     pdf.ln()
-    pdf.set_font("Arial", "", 10)
+    pdf.set_font("DejaVu", "", 10)
     pdf.set_text_color(60,60,60)
 
     # Table rows
@@ -64,22 +77,21 @@ def generate_pdf_receipt(df, logo_url=None):
         pdf.cell(col_widths[5], 8, f"${row['net']:.2f}", border=1, align='C', fill=True)
         pdf.ln()
 
-    pdf.set_font("Arial", "B", 11)
+    pdf.set_font("DejaVu", "B", 11)
     pdf.cell(88, 10, "Totals", border=1, align='R')
-    pdf.set_font("Arial", "B", 10)
+    pdf.set_font("DejaVu", "B", 10)
     pdf.cell(col_widths[3], 10, f"${df['amount'].sum():.2f}", border=1, align='C')
     pdf.cell(col_widths[4], 10, f"${df['cashback'].sum():.2f}", border=1, align='C')
     pdf.cell(col_widths[5], 10, f"${df['net'].sum():.2f}", border=1, align='C')
     pdf.ln(12)
 
-    pdf.set_font("Arial", 'I', 9)
+    pdf.set_font("DejaVu", 'I', 9)
     pdf.set_text_color(100,100,100)
     pdf.cell(0, 8, "Thank you for your payment!  —  Cashback Cards App", align='C')
 
     temp_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf").name
     pdf.output(temp_path)
     return temp_path
-
 
 # -- Add custom Apple Touch Icon and browser tab icon --
 st.markdown("""
@@ -405,7 +417,7 @@ elif tab == "History":
             }
             .edit-btn:hover { background: #dbefff; }
             @media (max-width: 700px) {
-                .flex-table-row, .flex-table-header { min-width: 550px; font-size: 1.01em;}
+                .flex-table-row, .flex-table-header { min-width: 550px; font-size:1.01em;}
                 .flex-col { min-width: 62px;}
                 .flex-col.amount, .flex-col.cashback, .flex-col.net { min-width: 73px;}
                 .flex-col.paid, .flex-col.edit { min-width: 40px;}
@@ -507,7 +519,6 @@ elif tab == "History":
 
         else:
             st.info("No purchases found.")
-
 
 # ---- 3. Cards Tab ----
 elif tab == "Cards":
