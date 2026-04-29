@@ -7,6 +7,22 @@ from datetime import datetime
 from fpdf import FPDF
 import tempfile
 import os
+import requests
+
+# -- Set page config must be the FIRST Streamlit command --
+st.set_page_config(
+    page_title="Cashback Cards App",
+    page_icon="https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png",
+    layout="centered"
+)
+
+# -- Add custom Apple Touch Icon and browser tab icon --
+st.markdown("""
+    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2498F7">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+""", unsafe_allow_html=True)
 
 def generate_pdf_receipt(df, logo_url=None):
     import shutil
@@ -15,7 +31,6 @@ def generate_pdf_receipt(df, logo_url=None):
         def header(self):
             if logo_url:
                 try:
-                    import requests
                     response = requests.get(logo_url)
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_logo:
                         tmp_logo.write(response.content)
@@ -32,12 +47,12 @@ def generate_pdf_receipt(df, logo_url=None):
             self.set_text_color(130,130,130)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
-    # --- Download font reliably, check for valid font file ---
-    FONT_PATH = "DejaVuSans.ttf"
+    # --- Download font reliably to static folder ---
+    os.makedirs("static", exist_ok=True)
+    FONT_PATH = "static/DejaVuSans.ttf"
     FONT_URL = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
 
     if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 100_000:
-        import requests
         r = requests.get(FONT_URL, timeout=10)
         if r.ok and r.headers.get("Content-Type","").startswith("font/"):
             with open(FONT_PATH, "wb") as f:
@@ -56,10 +71,6 @@ def generate_pdf_receipt(df, logo_url=None):
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("DejaVu", size=11)
-
-    # ... [rest of your code as before]
-    # Copy your receipt table, totals, etc. below this line
-
 
     # Colors
     header_bg = (40, 116, 207)
@@ -83,20 +94,29 @@ def generate_pdf_receipt(df, logo_url=None):
     for j, (_, row) in enumerate(df.iterrows()):
         fill = row_alt_bg if j%2==0 else row_normal_bg
         pdf.set_fill_color(*fill)
-        pdf.cell(col_widths[0], 8, str(row['date_only']), border=1, align='C', fill=True)
-        pdf.cell(col_widths[1], 8, str(row['card']), border=1, align='C', fill=True)
-        pdf.cell(col_widths[2], 8, str(row['category']), border=1, align='C', fill=True)
-        pdf.cell(col_widths[3], 8, f"${row['amount']:.2f}", border=1, align='C', fill=True)
-        pdf.cell(col_widths[4], 8, f"${row['cashback']:.2f}", border=1, align='C', fill=True)
-        pdf.cell(col_widths[5], 8, f"${row['net']:.2f}", border=1, align='C', fill=True)
+        
+        # Protect against missing keys if DataFrame formats change
+        date_val = str(row.get('date_only', row.get('date', '')))
+        card_val = str(row.get('card', ''))
+        cat_val = str(row.get('category', ''))
+        amt_val = f"${float(row.get('amount', 0)):.2f}"
+        cb_val = f"${float(row.get('cashback', 0)):.2f}"
+        net_val = f"${float(row.get('net', 0)):.2f}"
+
+        pdf.cell(col_widths[0], 8, date_val, border=1, align='C', fill=True)
+        pdf.cell(col_widths[1], 8, card_val, border=1, align='C', fill=True)
+        pdf.cell(col_widths[2], 8, cat_val, border=1, align='C', fill=True)
+        pdf.cell(col_widths[3], 8, amt_val, border=1, align='C', fill=True)
+        pdf.cell(col_widths[4], 8, cb_val, border=1, align='C', fill=True)
+        pdf.cell(col_widths[5], 8, net_val, border=1, align='C', fill=True)
         pdf.ln()
 
     pdf.set_font("DejaVu", "B", 11)
     pdf.cell(88, 10, "Totals", border=1, align='R')
     pdf.set_font("DejaVu", "B", 10)
-    pdf.cell(col_widths[3], 10, f"${df['amount'].sum():.2f}", border=1, align='C')
-    pdf.cell(col_widths[4], 10, f"${df['cashback'].sum():.2f}", border=1, align='C')
-    pdf.cell(col_widths[5], 10, f"${df['net'].sum():.2f}", border=1, align='C')
+    pdf.cell(col_widths[3], 10, f"${df['amount'].astype(float).sum():.2f}", border=1, align='C')
+    pdf.cell(col_widths[4], 10, f"${df.get('cashback', pd.Series([0])).astype(float).sum():.2f}", border=1, align='C')
+    pdf.cell(col_widths[5], 10, f"${df.get('net', pd.Series([0])).astype(float).sum():.2f}", border=1, align='C')
     pdf.ln(12)
 
     pdf.set_font("DejaVu", 'I', 9)
@@ -106,21 +126,6 @@ def generate_pdf_receipt(df, logo_url=None):
     temp_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf").name
     pdf.output(temp_path)
     return temp_path
-
-# -- Add custom Apple Touch Icon and browser tab icon --
-st.markdown("""
-    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#2498F7">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-""", unsafe_allow_html=True)
-
-# -- Set page config: title, browser tab icon (favicon), and layout --
-st.set_page_config(
-    page_title="Cashback Cards App",
-    page_icon="https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png",
-    layout="centered"
-)
 
 SCOPE = [
     "https://spreadsheets.google.com/feeds",
@@ -137,9 +142,10 @@ def get_gsheets():
     sh = gc.open("cashback_app")
     cards_ws = sh.worksheet("cards")
     purchases_ws = sh.worksheet("purchases")
-    return cards_ws, purchases_ws
+    receipts_ws = sh.worksheet("receipts") # Added new worksheet for archive
+    return cards_ws, purchases_ws, receipts_ws
 
-cards_ws, purchases_ws = get_gsheets()
+cards_ws, purchases_ws, receipts_ws = get_gsheets()
 
 def load_cards():
     records = cards_ws.get_all_records()
@@ -154,15 +160,15 @@ def load_cards():
     return cards
 
 def save_cards(cards):
-    rows = []
+    values = [["card_name", "category", "cashback_percent"]]
     for card, categories in cards.items():
         for category, percent in categories.items():
-            rows.append({"card_name": card, "category": category, "cashback_percent": percent})
+            values.append([card, category, percent])
+            
     cards_ws.clear()
-    if rows:
-        cards_ws.append_row(["card_name", "category", "cashback_percent"])
-        for row in rows:
-            cards_ws.append_row([row["card_name"], row["category"], row["cashback_percent"]])
+    if len(values) > 1:
+        # Optimized single API call
+        cards_ws.update(f"A1:C{len(values)}", values)
 
 def load_purchases():
     records = purchases_ws.get_all_records()
@@ -191,6 +197,16 @@ def save_purchases(purchases):
     if sheet_len > len(values):
         purchases_ws.batch_clear([f"A{len(values)+1}:E{sheet_len}"])
 
+# --- New Functions for Receipts Archive ---
+def load_receipts():
+    return receipts_ws.get_all_records()
+
+def save_receipt(date_paid, total_amount, purchase_data):
+    items_json = purchase_data.to_json(orient="records")
+    if len(receipts_ws.get_all_values()) == 0:
+        receipts_ws.append_row(["date_paid", "total_amount", "items_json"])
+    receipts_ws.append_row([str(date_paid), float(total_amount), items_json])
+
 if "new_card_categories" not in st.session_state:
     st.session_state.new_card_categories = {}
 if "edit_purchase_index" not in st.session_state:
@@ -212,6 +228,7 @@ def tabs_nav():
     tabs = {
         "Add Purchase": "🟢 Add Purchase",
         "History": "📜 History",
+        "Receipts": "📁 Receipts", # Added new tab
         "Cards": "💳 Cards",
     }
     st.markdown("""
@@ -279,8 +296,6 @@ if tab == "Add Purchase":
 # ---- 2. History Tab ----
 elif tab == "History":
     st.header("📜 Purchase History")
-    if "just_paid" not in st.session_state:
-        st.session_state.just_paid = None
 
     if not purchases:
         st.info("No purchases yet.")
@@ -301,6 +316,9 @@ elif tab == "History":
             df['paid_str'] = df['paid'].apply(lambda x: "✅" if x else "❌")
             df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
             df['date_only'] = df['date_dt'].dt.strftime('%Y-%m-%d')
+            
+            # --- SORTING: Newest to Oldest ---
+            df = df.sort_values(by='date_dt', ascending=False)
 
             # --- FILTERS ---
             all_cards = ["All"] + list(cards.keys())
@@ -372,11 +390,17 @@ elif tab == "History":
             to_pay = filtered[filtered['paid'] == False]
             if not to_pay.empty:
                 if st.button(f"Pay All Filtered ({len(to_pay)} purchases)", type="primary"):
+                    # Update all items to paid
                     for idx in to_pay.index:
                         purchases[idx]["paid"] = True
                     save_purchases(purchases)
-                    st.session_state.just_paid = to_pay.copy()
-                    st.success(f"Marked {len(to_pay)} purchases as paid!")
+                    
+                    # --- Save the receipt data to the new archive tab ---
+                    payment_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    total_paid = float(to_pay['amount'].sum())
+                    save_receipt(payment_date, total_paid, to_pay)
+                    
+                    st.success(f"Marked {len(to_pay)} purchases as paid and saved to Receipts archive!")
                     st.rerun()
 
             # --- FLEX ROW TABLE STYLES ---
@@ -485,7 +509,7 @@ elif tab == "History":
                         if st.button("✏️", key=f"edit_{idx}"):
                             st.session_state.edit_row = idx
 
-                    # --- EDIT FORM: directly under the row being edited ---
+                    # --- EDIT FORM ---
                     if st.session_state.get("edit_row") == idx:
                         edit_row = df.loc[idx]
                         st.markdown(
@@ -518,23 +542,51 @@ elif tab == "History":
                         st.markdown("</div>", unsafe_allow_html=True)
             else:
                 st.info("No purchases match your filters.")
-
-            # --- EXPORT RECEIPT AS PDF FOR JUST PAID ---
-            logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
-            if st.session_state.get("just_paid") is not None:
-                just_paid = st.session_state["just_paid"]
-                if not just_paid.empty:
-                    st.subheader("🧾 Receipt for Paid Purchases")
-                    pdf_path = generate_pdf_receipt(just_paid, logo_url=logo_url)
-                    with open(pdf_path, "rb") as pdf_file:
-                        st.download_button("⬇️ Download Receipt as PDF", pdf_file.read(), file_name="paid_receipt.pdf", mime="application/pdf")
-                    if st.button("❌ Hide Receipt"):
-                        st.session_state.just_paid = None
-
         else:
             st.info("No purchases found.")
 
-# ---- 3. Cards Tab ----
+# ---- 3. Saved Receipts Archive Tab ----
+elif tab == "Receipts":
+    st.header("📁 Saved Receipts Archive")
+    
+    saved_receipts = load_receipts()
+    
+    if not saved_receipts:
+        st.info("You haven't generated any receipts yet. Pay some purchases in the History tab first!")
+    else:
+        # Reverse to show the newest receipts at the top
+        saved_receipts.reverse()
+        
+        # Cache the PDF generation so the app stays fast
+        @st.cache_data
+        def get_cached_pdf_bytes(json_string):
+            import json
+            temp_df = pd.DataFrame(json.loads(json_string))
+            logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
+            path = generate_pdf_receipt(temp_df, logo_url=logo_url)
+            with open(path, "rb") as f:
+                return f.read()
+
+        for index, receipt in enumerate(saved_receipts):
+            with st.expander(f"🧾 Receipt from {receipt['date_paid']} — Total: ${float(receipt['total_amount']):.2f}"):
+                # Convert saved JSON back to DataFrame
+                receipt_df = pd.DataFrame(json.loads(receipt['items_json']))
+                
+                # Setup preview columns safely
+                cols_to_show = [c for c in ['date_only', 'card', 'category', 'amount', 'net'] if c in receipt_df.columns]
+                st.dataframe(receipt_df[cols_to_show], use_container_width=True)
+                
+                pdf_bytes = get_cached_pdf_bytes(receipt['items_json'])
+                
+                st.download_button(
+                    label="⬇️ Download PDF Receipt",
+                    data=pdf_bytes,
+                    file_name=f"Receipt_{str(receipt['date_paid'])[:10]}.pdf",
+                    mime="application/pdf",
+                    key=f"dl_archive_{index}"
+                )
+
+# ---- 4. Cards Tab ----
 elif tab == "Cards":
     st.header("💳 Cards")
     with st.expander("➕ Create Card"):
