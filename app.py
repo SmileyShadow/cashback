@@ -58,7 +58,7 @@ def generate_pdf_receipt(df, logo_url=None):
             with open(FONT_PATH, "wb") as f:
                 f.write(r.content)
         else:
-            # Fallback to a backup font location (eg. Google Fonts)
+            # Fallback to a backup font location
             backup_url = "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/fonts/ttf/JetBrainsMono-Regular.ttf"
             r2 = requests.get(backup_url, timeout=10)
             with open(FONT_PATH, "wb") as f:
@@ -95,7 +95,6 @@ def generate_pdf_receipt(df, logo_url=None):
         fill = row_alt_bg if j%2==0 else row_normal_bg
         pdf.set_fill_color(*fill)
         
-        # Protect against missing keys if DataFrame formats change
         date_val = str(row.get('date_only', row.get('date', '')))
         card_val = str(row.get('card', ''))
         cat_val = str(row.get('category', ''))
@@ -126,6 +125,15 @@ def generate_pdf_receipt(df, logo_url=None):
     temp_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf").name
     pdf.output(temp_path)
     return temp_path
+
+@st.cache_data(show_spinner=False)
+def get_cached_pdf_bytes(json_string):
+    """Helper function to load PDFs from the archive efficiently."""
+    temp_df = pd.DataFrame(json.loads(json_string))
+    logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
+    path = generate_pdf_receipt(temp_df, logo_url=logo_url)
+    with open(path, "rb") as f:
+        return f.read()
 
 SCOPE = [
     "https://spreadsheets.google.com/feeds",
@@ -197,7 +205,7 @@ def save_purchases(purchases):
     if sheet_len > len(values):
         purchases_ws.batch_clear([f"A{len(values)+1}:E{sheet_len}"])
 
-# --- New Functions for Receipts Archive ---
+# --- Functions for Receipts Archive ---
 def load_receipts():
     return receipts_ws.get_all_records()
 
@@ -207,6 +215,7 @@ def save_receipt(date_paid, total_amount, purchase_data):
         receipts_ws.append_row(["date_paid", "total_amount", "items_json"])
     receipts_ws.append_row([str(date_paid), float(total_amount), items_json])
 
+# --- Session State Management ---
 if "new_card_categories" not in st.session_state:
     st.session_state.new_card_categories = {}
 if "edit_purchase_index" not in st.session_state:
@@ -223,12 +232,14 @@ if "should_reset_amount" not in st.session_state:
     st.session_state.should_reset_amount = False
 if "edit_row" not in st.session_state:
     st.session_state.edit_row = None
+if "just_paid" not in st.session_state:
+    st.session_state.just_paid = None
 
 def tabs_nav():
     tabs = {
         "Add Purchase": "🟢 Add Purchase",
         "History": "📜 History",
-        "Receipts": "📁 Receipts", # Added new tab
+        "Receipts": "📁 Receipts", 
         "Cards": "💳 Cards",
     }
     st.markdown("""
@@ -390,18 +401,33 @@ elif tab == "History":
             to_pay = filtered[filtered['paid'] == False]
             if not to_pay.empty:
                 if st.button(f"Pay All Filtered ({len(to_pay)} purchases)", type="primary"):
-                    # Update all items to paid
                     for idx in to_pay.index:
                         purchases[idx]["paid"] = True
                     save_purchases(purchases)
                     
-                    # --- Save the receipt data to the new archive tab ---
+                    # 1. Trigger the immediate download pop-up
+                    st.session_state.just_paid = to_pay.copy()
+                    
+                    # 2. Save the backup receipt to the archive tab
                     payment_date = datetime.now().strftime("%Y-%m-%d %H:%M")
                     total_paid = float(to_pay['amount'].sum())
                     save_receipt(payment_date, total_paid, to_pay)
                     
-                    st.success(f"Marked {len(to_pay)} purchases as paid and saved to Receipts archive!")
+                    st.success(f"Marked {len(to_pay)} purchases as paid and saved backup to Receipts archive!")
                     st.rerun()
+
+            # --- IMMEDIATE DOWNLOAD POP-UP (RESTORED) ---
+            if st.session_state.get("just_paid") is not None:
+                just_paid = st.session_state["just_paid"]
+                if not just_paid.empty:
+                    st.subheader("🧾 Receipt for Paid Purchases")
+                    logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
+                    pdf_path = generate_pdf_receipt(just_paid, logo_url=logo_url)
+                    with open(pdf_path, "rb") as pdf_file:
+                        st.download_button("⬇️ Download Receipt as PDF", pdf_file.read(), file_name="paid_receipt.pdf", mime="application/pdf")
+                    if st.button("❌ Hide Receipt"):
+                        st.session_state.just_paid = None
+                        st.rerun()
 
             # --- FLEX ROW TABLE STYLES ---
             st.markdown("""
@@ -556,16 +582,6 @@ elif tab == "Receipts":
     else:
         # Reverse to show the newest receipts at the top
         saved_receipts.reverse()
-        
-        # Cache the PDF generation so the app stays fast
-        @st.cache_data
-        def get_cached_pdf_bytes(json_string):
-            import json
-            temp_df = pd.DataFrame(json.loads(json_string))
-            logo_url = "https://raw.githubusercontent.com/SmileyShadow/cashback/main/static/icon.png.png"
-            path = generate_pdf_receipt(temp_df, logo_url=logo_url)
-            with open(path, "rb") as f:
-                return f.read()
 
         for index, receipt in enumerate(saved_receipts):
             with st.expander(f"🧾 Receipt from {receipt['date_paid']} — Total: ${float(receipt['total_amount']):.2f}"):
