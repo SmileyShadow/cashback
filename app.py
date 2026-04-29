@@ -345,7 +345,7 @@ elif tab == "History":
             # --- FILTERS ---
             all_cards = ["All"] + list(cards.keys())
             filter_card = st.selectbox("Filter by card", all_cards, key="history_card")
-            paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], horizontal=True)
+            paid_filter = st.radio("Show", ["All", "Paid only", "Unpaid only"], index=2, horizontal=True)
             months = df['date_dt'].dt.to_period('M').dropna().unique()
             months = sorted([str(m) for m in months], reverse=True)
             filter_month = st.selectbox("Filter by month", ["All"] + months, key="history_month")
