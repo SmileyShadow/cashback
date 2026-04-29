@@ -211,8 +211,19 @@ def load_receipts():
 
 def save_receipt(date_paid, total_amount, purchase_data):
     items_json = purchase_data.to_json(orient="records")
-    if len(receipts_ws.get_all_values()) == 0:
+    
+    # Check if headers exist in row 1
+    try:
+        first_row = receipts_ws.row_values(1)
+    except:
+        first_row = []
+        
+    # If the headers are missing or wrong, add them!
+    if not first_row or first_row[0] != "date_paid":
+        receipts_ws.clear()
         receipts_ws.append_row(["date_paid", "total_amount", "items_json"])
+        
+    # Save the receipt
     receipts_ws.append_row([str(date_paid), float(total_amount), items_json])
 
 # --- Session State Management ---
